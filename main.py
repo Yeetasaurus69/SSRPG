@@ -1019,7 +1019,7 @@ class PlayerCharacter:
         print("\n" * 21)
         while True:
             try:
-                data_line = input("Who is doing this action?: ").strip()
+                data_line = input("ENTER Character Line?: ").strip()
                 parts = data_line.split(",")
                 if len(parts) < 9:
                     print("[!] Not enough values. Please enter the full stat line.")
