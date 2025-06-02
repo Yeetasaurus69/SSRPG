@@ -13,7 +13,8 @@ def input(prompt=""):
             return _original_input(prompt)
         except (EOFError, KeyboardInterrupt):
             print("[!] Input failed or was interrupted. Please try again.")
-
+VERSION = "1"  # ← change this manually when you update!
+print(f"\n🔄 SSRPG Game Version: {VERSION}\n")
 # Ohm,200,200, 50, 50,50,5,1,15
 
 # Define constants for status effects and travel outcomes
