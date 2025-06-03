@@ -15,7 +15,7 @@ def input(prompt=""):
             print("[!] Input failed or was interrupted. Please try again.")
 
             
-VERSION = "2"  # ← change this manually when you update!
+VERSION = "3"  # ← change this manually when you update!
 print(f"\n🔄 SSRPG Game Version: {VERSION}\n")
 
 
@@ -3315,6 +3315,7 @@ class Battle:
             print("3. Use Item")
             print("4. Back")
             print("5. CREATURE Encounter")
+            print("6. Equip/Unequip Armor")
             print("")
             print("")
 
@@ -3368,6 +3369,9 @@ class Battle:
 
             elif choice == '4':
                 break
+            elif choice == '6':
+                self.armor_menu(player)
+
             elif choice == '5':
                 biome_input = input("What biome are you in?: ").strip().capitalize()
                 full_biome = None
@@ -3420,7 +3424,74 @@ class Battle:
             else:
                 print("Invalid option. Please try again.")
             
-            
+
+    def armor_menu(self, player):
+        # Armor database
+        ARMOR_ITEMS = {
+            "AntlerHood": {"damage": 3, "protection": 3},
+            "StonyHideLegwraps": {"protection": 8},
+            "WovenHood": {"protection": 2},
+            "WovenVest": {"protection": 4},
+            "WovenLegwraps": {"protection": 3},
+            "FurHood": {"protection": 3},
+            "FurVest": {"protection": 6},
+            "FurLegwraps": {"protection": 5},
+            "HideHood": {"protection": 5},
+            "HideVest": {"protection": 9},
+            "HideLegwraps": {"protection": 7},
+            "BoneHood": {"protection": 6},
+            "BoneVest": {"protection": 11},
+            "BoneLegwraps": {"protection": 8},
+            "SpikedCollar": {"protection": 2, "damage": 5},
+            "ShellPendant": {"luck": 10, "damage": 3},
+            "ForestLuckCharm": {"luck": 10}
+        }
+        print("\n=== ARMOR LIST ===")
+        for name, boosts in ARMOR_ITEMS.items():
+            boost_str = ", ".join(f"+{v} {k.capitalize()}" for k, v in boosts.items())
+            print(f"- {name}: {boost_str}")
+        print("===================\n")
+
+        action = input("Are you equipping or unequipping? ").strip().lower()
+        if action not in ['equipping', 'unequipping']:
+            print("Invalid action. Must be 'equipping' or 'unequipping'.")
+            return
+
+        item_name = input("What are you equipping/unequipping? ").strip().replace(" ", "")
+        item = ARMOR_ITEMS.get(item_name)
+
+        if not item:
+            print(f"{item_name} not found.")
+            return
+
+        modifier = 1 if action == 'equipping' else -1
+
+        print(f"\n{action.title()} {item_name}...")
+
+        for stat, boost in item.items():
+            if hasattr(player, stat):
+                old_val = getattr(player, stat)
+                setattr(player, stat, old_val + (boost * modifier))
+                print(f"{'+' if modifier > 0 else '-'}{boost} {stat.capitalize()}!")
+
+        # Display updated stats
+        print("\n=== UPDATED PLAYER STATS ===")
+        print(f"Name:         {player.name}")
+        print(f"Max Health:   {player.max_health}")
+        print(f"Health:       {player.health}")
+        print(f"Max Stamina:  {player.max_stamina}")
+        print(f"Stamina:      {player.stamina}")
+        print(f"Luck:         {player.luck}")
+        print(f"Protection:   {player.protection}")
+        print(f"Light:        {player.light}")
+        print(f"Damage:       {player.damage}")
+        print(f"Status:       {player.status_effects}")
+        print("============================\n")
+
+        print("=== PLAYER LINE ===")
+        print(f"{player.name},{player.max_health},{player.health},{player.stamina},{player.max_stamina},{player.luck},{player.protection},{player.light},{player.damage},{player.temp_damage},{player.temp_protection},{','.join(player.status_effects) if player.status_effects else 'None'}")
+        print("====================")
+
 
     def use_item(self, player):
         print("\n" * 21)
