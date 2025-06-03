@@ -15,7 +15,7 @@ def input(prompt=""):
             print("[!] Input failed or was interrupted. Please try again.")
 
             
-VERSION = "3"  # ← change this manually when you update!
+VERSION = "4"  # ← change this manually when you update!
 print(f"\n🔄 SSRPG Game Version: {VERSION}\n")
 
 
@@ -64,100 +64,73 @@ PREY_NAMES = {
     "Trout", "Minnow", "Crab"
 }
 
+# === VALUE SYSTEM ===
+ITEM_VALUES = {
+# === DROPS (~5–20 max) ===
+    "Fur": 1, "Feather": 1, "Scale": 3, "Shell": 3, "Bone": 4,
+    "Claw": 3, "Tooth": 3, "Venom Gland": 9, "Rotten Meat": 9, "Hide": 3,
+
+    # === GATHERABLES (~5–15 max) ===
+    "Comfrey Root": 6, "Goldenrod": 6, "Horsetail": 8, "Burdock Root": 6,
+    "Dock Leaves": 4, "Juniper Berries": 4, "Marigold": 4, "Blackberry Leaves": 3,
+    "Catmint": 8, "Grass": 2, "Thistle Patches": 3, "Seaweed": 3, "Poppy Seeds": 8,
+    "Stick": 2, "Sap": 6, "Moss": 3, "Pinecone": 4, "Rock": 5, "Antler": 12,
+    "Root": 5, "Stone": 6,
+
+    # === MEAT ===
+    "Small Meat": 6, "Medium Meat": 12, "Large Meat": 20,
+
+    # === MEDICINE (100–120) ===
+    "Basic Healing Poultice": 100, "Wound Salve": 110, "Poison Cleanser": 115,
+    "Stamina Tonic": 105, "Strong Healing Mixture": 120,
+
+    # === ARMORS / CRAFTED GEAR (150–200) ===
+    "Fur Hood": 150, "Fur Vest": 160, "Fur Legwraps": 150,
+    "Hide Hood": 170, "Hide Vest": 180, "Hide Legwraps": 170,
+    "Bone Hood": 190, "Bone Vest": 200, "Bone Legwraps": 190,
+    "Spiked Collar": 180, "Defense Wrap": 170,
+    "ForestLuckCharm": 150, "AntlerHood": 160,
+    "StonyHideLegwraps": 175,
+
+    # === CRAFTING ITEMS ===
+    "Shard": 100,
+    "ArmorReinforcementPaste": 99,
+
+    # === STATS (~360) ===
+    "+1 Damage": 360, "+1 Stamina": 360, "+1 Health": 360,
+    "+1 Luck": 360, "+1 Protection": 360, "+1 Dice Face": 360,
+    "+1 Inventory Slot": 360
+}
+
+NONSENSE_TASK_ITEMS = {
+    "+1 Luck", "+1 Stamina", "+1 Health", "+1 Damage",
+    "+1 Protection", "+1 Dice Face", "+1 Inventory Slot", "ArmorReinforcementPaste", "ForestLuckCharm", "AntlerHood",
+    "StonyHideLegwraps", "Small Meat", "Medium Meat", "Large Meat", "Basic Healing Poultice", "Wound Salve",
+    "Poison Cleanser", "Spiked Collar", "Defense Wrap", "Fur Hood", "Fur Vest", "Fur Legwraps",
+    "Hide Hood", "Hide Vest", "Hide Legwraps", "Stamina Tonic", "Strong Healing Mixture",
+    "Bone Hood", "Bone Vest", "Bone Legwraps",
+}
+
+
 class BountySystem:
-    def __init__(self):
-        self.creature_difficulty = {
-            "Mouse": 1, "Squirrel": 1, "Blackbird": 1, "Rabbit": 2,
-            "Mountain Hare": 4, "Small Bird": 4, "Vole": 2, "Trout": 6,
-            "Minnow": 1, "Crab": 3, "Sparrow": 5, "Water Vole": 5,
-            "Small Fish": 3, "Fox": 10, "Hawk": 9, "Owl": 15, "Eagle": 18,
-            "Badger": 20, "Wolverine": 25, "Mutated Fox": 80, "Rabid Wolf": 80,
-            "Monstrous Rogue": 80, "Gull": 20, "Crow": 24, "Sea Snake": 25
+    def __init__(self, item_values, creature_templates):
+        self.item_values = item_values
+        self.creature_templates = creature_templates
+        self.predators = [c.name for c in creature_templates if c.is_predator]
+
+        # ✅ Define self.items BEFORE using it in reward_weights
+        self.items = [
+        k for k in item_values
+        if k not in self.predators and k not in NONSENSE_TASK_ITEMS
+        ]
+
+        self.reward_weights = {
+        item: max(1, int(100 / (1 + self.item_values[item])))  # Inverse weighting
+        for item in self.items
         }
 
-        self.item_difficulty = {
-            "Fur": 1, "Feather": 15, "Scale": 25, "Shell": 2, "Bone": 10,
-            "Claw": 9, "Tooth": 10, "Venom Gland": 24, "Rotten Meat": 80, "Hide": 20
-        }
-
-        self.plant_difficulty = {
-            "Comfrey Root": 10,
-            "Goldenrod": 11,
-            "Horsetail": 15,
-            "Burdock Root": 5,
-            "Dock Leaves": 3,
-            "Juniper Berries": 3,
-            "Marigold": 3,
-            "Blackberry Leaves": 2,
-            "Catmint": 40,
-            "Grass": 1,
-            "Thistle Patches": 2,
-            "Seaweed": 2,
-            "Poppy Seeds": 14,
-            "Stick": 1,
-            "Sap": 4,
-            "Moss": 2,
-            "Pinecone": 3,
-            "Rock": 5,
-            "Antler": 18,
-            "Root": 6,
-            "Stone": 5,
-            "Shard": 30
-        }
-
-        self.all_plants = list(self.plant_difficulty.keys())
-
-        self.rarity_weights = {
-            "common": 70,
-            "uncommon": 25,
-            "rare": 1
-        }
-
-        self.reward_tiers = {
-            "low": {
-                "common": [
-                    'Grass', 'Fur', 'Feather', 'Shell', 'Rotten Meat',
-                    'Dock Leaves', 'Goldenrod', 'Stick', 'Moss', 'Pinecone', 'Rock'
-                ],
-                "uncommon": [
-                    'Blackberry Leaves', 'Comfrey Root', 'Horsetail',
-                    'Seaweed', 'Small Meat', 'Root', 'Sap', 'Stone'
-                ],
-                "rare": [
-                    'Thistle Patches', 'Juniper Berries', 'Marigold',
-                    'Burdock Root', 'Antler'
-                ]
-            },
-            "medium": {
-                "common": [
-                    'Thistle Patches', 'Juniper Berries', 'Marigold',
-                    'Burdock Root', 'Root', 'Sap', 'Stone'
-                ],
-                "uncommon": [
-                    'Claw', 'Tooth', 'Scale', 'Venom Gland', 'Medium Meat',
-                    'Antler', 'ArmorReinforcementPaste', 'ShardInfusion'
-                ],
-                "rare": [
-                    'Basic Healing Poultice', 'Wound Salve', 'Poison Cleanser',
-                    'Fur Hood', 'Fur Vest', 'ForestLuckCharm'
-                ]
-            },
-            "high": {
-                "common": [
-                    'Large Meat', 'Stamina Tonic', 'Strong Healing Mixture',
-                    'ArmorReinforcementPaste'
-                ],
-                "uncommon": [
-                    'Spiked Collar', 'Defense Wrap', 'Fur Legwraps',
-                    'Hide Hood', 'Hide Vest', 'Hide Legwraps', 'AntlerHood', 'StonyHideLegwraps'
-                ],
-                "rare": [
-                    '+1 Damage', '+1 Stamina', '+1 Inventory Slot',
-                    'Bone Hood', 'Bone Vest', 'Bone Legwraps',
-                    '+1 Luck', '+1 Health', '+1 Protection', '+1 Dice Face',
-                    'Shard'
-                ]
-            }
+        self.creature_values = {
+        c.name: (c.damage + c.health // 4) for c in creature_templates if c.is_predator
         }
 
     def generate_bounty(self):
@@ -172,98 +145,63 @@ class BountySystem:
             return self._generate_mixed_bounty()
 
     def _generate_combat_bounty(self):
+        target = random.choice(self.predators)
         num = random.randint(2, 5)
-        target = random.choice(list(self.creature_difficulty.keys()))
-        difficulty = self.creature_difficulty[target] * num
-        tier = self._get_tier(difficulty)
-        reward = self._choose_items_by_rarity(tier)
+        target_value = self.creature_values.get(target, 10)
+        total_value = target_value * num
+        reward = self._choose_reward(total_value)
         return {
             "type": "combat",
-            "task": f"Defeat {num} {target}s",
+            "task": f"Defeat {num} {target}(s)",
+            "value": total_value,
             "reward": reward
         }
 
     def _generate_delivery_bounty(self):
+        item = random.choice(self.items)
         num = random.randint(3, 8)
-        item = random.choice(list(self.item_difficulty.keys()))
-        difficulty = self.item_difficulty[item] * num
-        tier = self._get_tier(difficulty)
-        reward = self._choose_items_by_rarity(tier)
-        return {
-            "type": "delivery",
-            "task": f"Deliver {num} {item}",
-            "reward": reward
-        }
+        total_value = self.item_values[item] * num * 0.9
+        reward = self._choose_reward(total_value)
+        return {"type": "delivery", "task": f"Deliver {num} {item}", "value": total_value, "reward": reward}
 
     def _generate_gathering_bounty(self):
-        num = random.randint(3, 7)
-        plant = random.choice(self.all_plants)
-        difficulty = self.plant_difficulty[plant] * num
-        tier = self._get_tier(difficulty)
-        reward = self._choose_items_by_rarity(tier)
-        return {
-            "type": "gathering",
-            "task": f"Gather {num} {plant}",
-            "reward": reward
-        }
+        plant = random.choice(self.items)
+        num = random.randint(3, 8)
+        total_value = self.item_values[plant] * num * 0.9
+        reward = self._choose_reward(total_value)
+        return {"type": "gathering", "task": f"Gather {num} {plant}", "value": total_value, "reward": reward}
 
     def _generate_mixed_bounty(self):
-        num_creatures = random.randint(1, 3)
-        num_items = random.randint(2, 5)
-        creature = random.choice(list(self.creature_difficulty.keys()))
-        item = random.choice(list(self.item_difficulty.keys()))
-        difficulty = self.creature_difficulty[creature] * num_creatures + self.item_difficulty[item] * num_items
-        tier = self._get_tier(difficulty)
-        reward = self._choose_items_by_rarity(tier)
+        creature = random.choice(self.predators)
+        item = random.choice(self.items)
+        num_c = random.randint(1, 3)
+        num_i = random.randint(2, 5)
+
+        creature_value = self.creature_values.get(creature, 10)
+        item_value = self.item_values[item]
+        total_value = (creature_value * num_c + item_value * num_i) * 0.9
+
+        reward = self._choose_reward(total_value)
         return {
             "type": "mixed",
-            "task": f"Defeat {num_creatures} {creature}s and collect {num_items} {item}",
+            "task": f"Defeat {num_c} {creature}(s) and collect {num_i} {item}",
+            "value": total_value,
             "reward": reward
         }
 
-    def _get_tier(self, difficulty):
-        if difficulty < 60:
-            return "low"
-        elif difficulty < 155:
-            return "medium"
-        else:
-            return "high"
+    def _choose_reward(self, total_value):
+        candidates = [
+            i for i in self.items
+            if abs(self.item_values[i] - total_value) <= 10  # more forgiving range
+        ]
+        if not candidates:
+            fallback = min(self.items, key=lambda x: abs(self.item_values[x] - total_value))
+            return fallback
 
-    def _choose_items_by_rarity(self, tier):
-        def weighted_choice(choices):
-            total = sum(choices.values())
-            r = random.uniform(0, total)
-            upto = 0
-            for k, w in choices.items():
-                if upto + w >= r:
-                    return k
-                upto += w
-            return "common"
+        # Use weighted random choice
+        weights = [self.reward_weights[i] for i in candidates]
+        return random.choices(candidates, weights=weights, k=1)[0]
 
-        rewards = []
-        high_item_given = False
-        num_rewards = random.randint(1, 2)
-
-        for _ in range(num_rewards):
-            rarity = weighted_choice(self.rarity_weights)
-
-            # Choose the tier pool (low, medium, high)
-            current_pool = self.reward_tiers[tier][rarity]
-
-            # Prevent >1 item from high tier reward pools
-            if tier == "high":
-                if high_item_given:
-                    # Fallback to medium tier item pool to avoid extra high items
-                    fallback_tier = "medium"
-                    rarity = weighted_choice(self.rarity_weights)
-                    current_pool = self.reward_tiers[fallback_tier][rarity]
-                else:
-                    high_item_given = True
-
-            if current_pool:
-                rewards.append(random.choice(current_pool))
-
-        return rewards
 
     def get_available_bounties(self):
         return [self.generate_bounty() for _ in range(3)]
@@ -665,161 +603,29 @@ class ShadowLottery:
         return results
 
 class KymeraDynamicShop:
-    ITEM_VALUES = {
-        "Fur": 1, "Feather": 4, "Scale": 5, "Shell": 2, "Bone": 10,
-        "Claw": 9, "Tooth": 10, "Venom Gland": 24, "Rotten Meat": 80, "Hide": 20,
-        "Comfrey Root": 10, "Goldenrod": 11, "Horsetail": 15, "Burdock Root": 5, "Dock Leaves": 3,
-        "Juniper Berries": 3, "Marigold": 3, "Blackberry Leaves": 2, "Catmint": 40, "Grass": 1,
-        "Thistle Patches": 2, "Seaweed": 2, "Poppy Seeds": 14,
-        "Small Meat": 5, "Medium Meat": 10, "Large Meat": 20,
-        "Basic Healing Poultice": 25, "Wound Salve": 30, "Poison Cleanser": 30,
-        "Spiked Collar": 40, "Defense Wrap": 35, "Fur Hood": 25, "Fur Vest": 30, "Fur Legwraps": 20,
-        "Hide Hood": 30, "Hide Vest": 35, "Hide Legwraps": 30,
-        "Bone Hood": 50, "Bone Vest": 55, "Bone Legwraps": 50,
-        "+1 Damage": 80, "+1 Stamina": 80, "+1 Health": 80, "+1 Luck": 80, "+1 Protection": 80,
-        "Stamina Tonic": 37, "Strong Healing Mixture": 45, "+1 Dice Face": 80, "+1 Inventory Slot": 80,
+    def __init__(self, item_values):
+        self.item_values = item_values
 
-        # NEW ITEMS
-        "Stick": 1,
-        "Sap": 6,
-        "Moss": 2,
-        "Pinecone": 3,
-        "Rock": 4,
-        "Antler": 18,
-        "Root": 6,
-        "Stone": 5,
-        "Shard": 75,
+    def generate_trade(self):
+        offered_item = random.choice(list(self.item_values))
+        target_value = self.item_values[offered_item]
+        options = [i for i in self.item_values if i != offered_item and abs(self.item_values[i] - target_value) <= 5]
+        if not options:
+            return None
+        requested_items = random.choices(options, k=random.randint(1, 2))
+        return {
+            "Kymera Offers": offered_item,
+            "She Wants": requested_items
+        }
 
-        # NEW CRAFTED ITEMS
-        "ArmorReinforcementPaste": 38,
-        "ForestLuckCharm": 25,
-        "ShardInfusion": 50,
-        "MossPoultice": 22,
-        "RootWraps": 28,
-        "SturdyCraftingBase": 18,
-        "ReinforcedLegwraps": 32,
-        "AntlerHood": 40,
-        "StonyHideLegwraps": 42
-    }
-
-    def __init__(self, reward_tiers):
-        self.reward_tiers = reward_tiers
-        self.tier_order = ["low", "medium", "high"]
-
-    def get_pool(self, tier):
-        pool = []
-        for rarity_items in self.reward_tiers[tier].values():
-            pool.extend(rarity_items)
-        return pool
-
-    def get_item_tier(self, item):
-        for tier in self.tier_order:
-            if item in self.get_pool(tier):
-                return tier
-        return "low"
-
-    def generate_shop(self):
-        shop_output = []
-        shop_output.append("=== KYMERA'S RANDOM SHOP ===\n")
-
-        for tier in self.tier_order:
-            pool = self.get_pool(tier)
-            if not pool:
-                continue
-
-            shop_output.append(f"\n--- {tier.upper()} TIER OFFERS ---")
-            num_offers = random.randint(10, 12)  # Increased offers
-
-            offered_items = random.sample(pool, min(num_offers, len(pool)))
-
-            for item in offered_items:
-                item_value = self.ITEM_VALUES.get(item, 10)
-
-                lucky_trade = random.random() < 0.05
-                offer_style = random.choice(["1_for_1", "1_for_2", "2_for_1"])
-
-                if offer_style == "1_for_1":
-                    trade_pool = [i for i in pool if i != item]
-                    if not trade_pool:
-                        continue
-                    offer_item = random.choice(trade_pool)
-                    offer_value = self.ITEM_VALUES.get(offer_item, 10)
-
-                    if item == offer_item:
-                        continue
-
-                    if not lucky_trade and offer_value > item_value + 5:
-                        continue
-
-                    flavor = self.get_flavor(item_value, offer_value, lucky_trade)
-                    shop_output.append(f"{flavor}\n⭐ Kymera Offers: {item}\n🔻 She Wants: {offer_item}")
-                    shop_output.append("")
-
-                elif offer_style == "1_for_2":
-                    trade_pool = [i for i in pool if i != item]
-                    if not trade_pool:
-                        continue
-                    offer_items = random.choices(trade_pool, k=2)
-
-                    if item in offer_items:
-                        continue
-
-                    offer_total = sum(self.ITEM_VALUES.get(itm, 10) for itm in offer_items)
-
-                    if not lucky_trade and offer_total > item_value + 5:
-                        continue
-
-                    offer_text = self.format_items(offer_items)
-                    flavor = self.get_flavor(item_value, offer_total, lucky_trade)
-                    shop_output.append(f"{flavor}\n⭐ Kymera Offers: {item}\n🔻 She Wants: {offer_text}")
-                    shop_output.append("")
-
-                elif offer_style == "2_for_1":
-                    ask_pool = [i for i in pool]
-                    if not ask_pool:
-                        continue
-                    ask_items = random.choices(ask_pool, k=2)
-
-                    if item in ask_items:
-                        continue
-
-                    ask_total = sum(self.ITEM_VALUES.get(itm, 10) for itm in ask_items)
-
-                    item_tier = self.tier_order.index(self.get_item_tier(item))
-                    ask_tiers = [self.tier_order.index(self.get_item_tier(i)) for i in ask_items]
-
-                    if not lucky_trade and item_tier - min(ask_tiers) >= 1 and ask_total < item_value - 5:
-                        continue
-
-                    ask_text = self.format_items(ask_items)
-                    flavor = self.get_flavor(ask_total, item_value, lucky_trade)
-                    shop_output.append(f"{flavor}\n⭐ Kymera Offers: {ask_text}\n🔻 She Wants: {item}")
-                    shop_output.append("")
-
-        return "\n".join(shop_output)
-
-    def format_items(self, items):
-        counter = Counter(items)
+    def generate_shop(self, trades=10):
         result = []
-        for itm, amt in counter.items():
-            if amt > 1:
-                result.append(f"{itm} x{amt}")
-            else:
-                result.append(f"{itm}")
-        return ", ".join(result)
-
-    def get_flavor(self, offered_value, asked_value, lucky):
-        diff = asked_value - offered_value
-
-        if lucky:
-            return "Kymera flashes a rare grin. [Lucky Offer]"
-
-        if diff <= -10:
-            return "Kymera grins slyly. [Generous Offer]"
-        elif diff >= 20:
-            return "Kymera sneers greedily. [Expensive Offer]"
-        else:
-            return "Kymera hums thoughtfully. [Fair Offer]"
+        for _ in range(trades):
+            trade = self.generate_trade()
+            if trade:
+                offer_line = f"⭐ Kymera Offers: {trade['Kymera Offers']}\n🔻 She Wants: {', '.join(trade['She Wants'])}"
+                result.append(offer_line)
+        return "\n\n".join(result)
 
 class CraftingSystem:
     def __init__(self):
@@ -2603,7 +2409,7 @@ class Battle:
                 if not self.players:
                     self.prompt_for_players()
                 if self.players:
-                    battle.sell_items(bounty_system)
+                    battle.sell_items(ITEM_VALUES)
                 continue
 
             elif action == 'r':
@@ -2680,7 +2486,7 @@ class Battle:
 
                 
             elif action == "kymera":
-                shop = KymeraDynamicShop(bounty_system.reward_tiers)
+                shop = KymeraDynamicShop(ITEM_VALUES)
                 print(shop.generate_shop())
                 continue
 
@@ -3048,7 +2854,7 @@ class Battle:
         return False  # Return False to indicate the battle continuesrn None
 
     def show_bounties(self):
-        bounty_system = BountySystem()
+        bounty_system = BountySystem(ITEM_VALUES, creature_templates)
         available_bounties = bounty_system.get_available_bounties()
         print("\n" * 21)
         print("\n=== Available Bounties ===")
@@ -3571,88 +3377,51 @@ class Battle:
             print("Item not found.")
 
 
-    def sell_items(self, bounty_system):
-        has_trader = input("Do you have the Budgeteer title? (y/n): ").lower() == 'y'
-        extra_items = 1 if has_trader else 0
-
-        reward_tiers = bounty_system.reward_tiers
-        sellable_items = {
-            **{item: "low" for item in reward_tiers["low"]["common"] + reward_tiers["low"]["uncommon"] + reward_tiers["low"]["rare"]},
-            **{item: "medium" for item in reward_tiers["medium"]["common"] + reward_tiers["medium"]["uncommon"] + reward_tiers["medium"]["rare"]},
-            **{item: "high" for item in reward_tiers["high"]["common"] + reward_tiers["high"]["uncommon"] + reward_tiers["high"]["rare"]}
-        }
-
-        tier_points = {"low": 1, "medium": 2, "high": 3}
-        reverse_tier = {1: "low", 2: "medium", 3: "high"}
-
-        print("\n=== KYMERA’S TRADING POST ===")
-        print("Present your findings. Perhaps I'll deem something worthy of exchange...")
-
-        if has_trader:
-            print("Kymera is feeling generous; you may find her offerings particularly lavish!")
+    def sell_items(self, item_values):
+        print("=== KYMERA’S TRADING POST ===")
+        response = input("Do you have the Budgeteer title? (y/n): ").lower()
+        has_trader = response =='y'
+        print("")
+        print("Kymera peers at your items with calculating eyes...")
 
         item_to_sell = input("\nWhat item are you offering to trade? (type full name or 'exit'): ").strip()
         if item_to_sell.lower() == "exit":
             return
 
-        if item_to_sell not in sellable_items:
-            print("Kymera’s gaze sharpens with mild disdain. 'Surely you jest—I’ve no interest in that...")
+        if item_to_sell not in item_values:
+            print("Kymera scoffs. 'I've no use for that.'")
             return
 
         try:
             quantity = int(input("How many are you offering?: "))
             if quantity <= 0:
-                print("Kymera scoffs. 'You waste my time with nothing?'")
+                print("Kymera scowls. 'Nothing? Then be gone.'")
                 return
         except ValueError:
-            print("Kymera ignores your gibberish input.")
+            print("Kymera turns away, unimpressed by nonsense.")
             return
 
-        item_tier = sellable_items[item_to_sell]
-        offer_points = tier_points[item_tier] * quantity
+        base_value = item_values[item_to_sell] * quantity
+        adjusted_value = base_value * 1.15 if has_trader else base_value
 
-        # Determine offer tier
-        if offer_points >= 9:
-            offer_tier = "high"
-        elif offer_points >= 4:
-            offer_tier = "medium"
-        else:
-            offer_tier = "low"
-
-        def get_pool(tier):
-            pool = []
-            for rarity_items in reward_tiers[tier].values():
-                pool.extend(rarity_items)
-            return pool
-
-        trade_pool = get_pool(offer_tier)
-
-        if has_trader and offer_tier in ("low", "medium"):
-            tier_order = ["low", "medium", "high"]
-            upgraded_tier = tier_order[tier_order.index(offer_tier) + 1]
-            trade_pool.extend(get_pool(upgraded_tier))
-
-        if item_to_sell in trade_pool:
-            trade_pool.remove(item_to_sell)
-
-        if not trade_pool:
-            print("Kymera has nothing of interest to trade for that amount right now.")
+        pool = [i for i in item_values if abs(item_values[i] - adjusted_value) <= 5 and i != item_to_sell]
+        if not pool:
+            print("Kymera has nothing suitable to offer right now.")
             return
 
-        num_offers = min(1 + quantity // 3 + extra_items, len(trade_pool))
-        offer = random.sample(trade_pool, num_offers)
+        extra_items = 1 if has_trader else 0
+        offer = random.sample(pool, min(1 + quantity // 3 + extra_items, len(pool)))
 
         print(f"\nYou offer {quantity}x {item_to_sell}...")
-        print("Kymera ponders deeply...\n")
-
+        print("Kymera calculates quietly...")
         print("She offers you:")
         for i in offer:
             print(f" → {i}")
 
         if input("\nWill you accept her offer? (y/n): ").lower() != "y":
-            print("Kymera shrugs and turns away.")
+            print("Kymera shrugs, unimpressed by your hesitation.")
         else:
-            print("Well, it appears you're not entirely devoid of taste.")
+            print("Kymera nods slowly. 'A reasonable exchange.'")
 
     def handle_creature_defeat(self, target_creature):
         if target_creature.health <= 0:
@@ -3949,10 +3718,16 @@ class Battle:
 
 # Main Execution
 players = []  # Start with an empty list of players
+battle = Battle(players, None)  # Pass None for now
 
-# Initialize battle
-bounty_system = BountySystem()
-battle = Battle(players, bounty_system)
+# Now that Battle exists, get its creature list
+creature_templates = battle.creature_templates
+
+# Create bounty system using that list
+bounty_system = BountySystem(ITEM_VALUES, creature_templates)
+
+# Now update battle to hold it
+battle.bounty_system = bounty_system
 
 # Start the game and prompt for actions immediately
 battle.choose_action()
