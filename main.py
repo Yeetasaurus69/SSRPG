@@ -13,8 +13,12 @@ def input(prompt=""):
             return _original_input(prompt)
         except (EOFError, KeyboardInterrupt):
             print("[!] Input failed or was interrupted. Please try again.")
-VERSION = "1"  # ← change this manually when you update!
+
+            
+VERSION = "2"  # ← change this manually when you update!
 print(f"\n🔄 SSRPG Game Version: {VERSION}\n")
+
+
 # Ohm,200,200, 50, 50,50,5,1,15
 
 # Define constants for status effects and travel outcomes
@@ -77,10 +81,28 @@ class BountySystem:
         }
 
         self.plant_difficulty = {
-            "Comfrey Root": 10, "Goldenrod": 11, "Horsetail": 15,
-            "Burdock Root": 5, "Dock Leaves": 3, "Juniper Berries": 3,
-            "Marigold": 3, "Blackberry Leaves": 2, "Catmint": 40,
-            "Grass": 1, "Thistle Patches": 2, "Seaweed": 2, "Poppy Seeds": 14
+            "Comfrey Root": 10,
+            "Goldenrod": 11,
+            "Horsetail": 15,
+            "Burdock Root": 5,
+            "Dock Leaves": 3,
+            "Juniper Berries": 3,
+            "Marigold": 3,
+            "Blackberry Leaves": 2,
+            "Catmint": 40,
+            "Grass": 1,
+            "Thistle Patches": 2,
+            "Seaweed": 2,
+            "Poppy Seeds": 14,
+            "Stick": 1,
+            "Sap": 4,
+            "Moss": 2,
+            "Pinecone": 3,
+            "Rock": 5,
+            "Antler": 18,
+            "Root": 6,
+            "Stone": 5,
+            "Shard": 30
         }
 
         self.all_plants = list(self.plant_difficulty.keys())
@@ -93,19 +115,48 @@ class BountySystem:
 
         self.reward_tiers = {
             "low": {
-                "common": ['Grass', 'Fur', 'Feather', 'Shell', 'Rotten Meat', 'Dock Leaves', 'Goldenrod'],
-                "uncommon": ['Blackberry Leaves', 'Comfrey Root', 'Horsetail', 'Seaweed', 'Small Meat'],
-                "rare": ['Thistle Patches', 'Juniper Berries', 'Marigold', 'Burdock Root']
+                "common": [
+                    'Grass', 'Fur', 'Feather', 'Shell', 'Rotten Meat',
+                    'Dock Leaves', 'Goldenrod', 'Stick', 'Moss', 'Pinecone', 'Rock'
+                ],
+                "uncommon": [
+                    'Blackberry Leaves', 'Comfrey Root', 'Horsetail',
+                    'Seaweed', 'Small Meat', 'Root', 'Sap', 'Stone'
+                ],
+                "rare": [
+                    'Thistle Patches', 'Juniper Berries', 'Marigold',
+                    'Burdock Root', 'Antler'
+                ]
             },
             "medium": {
-                "common": ['Thistle Patches', 'Juniper Berries', 'Marigold', 'Burdock Root'],
-                "uncommon": ['Claw', 'Tooth', 'Scale', 'Venom Gland', 'Medium Meat'],
-                "rare": ['Basic Healing Poultice', 'Wound Salve', 'Poison Cleanser', 'Fur Hood', 'Fur Vest']
+                "common": [
+                    'Thistle Patches', 'Juniper Berries', 'Marigold',
+                    'Burdock Root', 'Root', 'Sap', 'Stone'
+                ],
+                "uncommon": [
+                    'Claw', 'Tooth', 'Scale', 'Venom Gland', 'Medium Meat',
+                    'Antler', 'ArmorReinforcementPaste', 'ShardInfusion'
+                ],
+                "rare": [
+                    'Basic Healing Poultice', 'Wound Salve', 'Poison Cleanser',
+                    'Fur Hood', 'Fur Vest', 'ForestLuckCharm'
+                ]
             },
             "high": {
-                "common": ['Large Meat', 'Stamina Tonic', 'Strong Healing Mixture'],
-                "uncommon": ['Spiked Collar', 'Defense Wrap', 'Fur Legwraps', 'Hide Hood', 'Hide Vest', 'Hide Legwraps'],
-                "rare": ['+1 Damage', '+1 Stamina', '+1 Inventory Slot', 'Bone Hood', 'Bone Vest', 'Bone Legwraps', '+1 Luck', '+1 Health', '+1 Protection', '+1 Dice Face']
+                "common": [
+                    'Large Meat', 'Stamina Tonic', 'Strong Healing Mixture',
+                    'ArmorReinforcementPaste'
+                ],
+                "uncommon": [
+                    'Spiked Collar', 'Defense Wrap', 'Fur Legwraps',
+                    'Hide Hood', 'Hide Vest', 'Hide Legwraps', 'AntlerHood', 'StonyHideLegwraps'
+                ],
+                "rare": [
+                    '+1 Damage', '+1 Stamina', '+1 Inventory Slot',
+                    'Bone Hood', 'Bone Vest', 'Bone Legwraps',
+                    '+1 Luck', '+1 Health', '+1 Protection', '+1 Dice Face',
+                    'Shard'
+                ]
             }
         }
 
@@ -626,7 +677,29 @@ class KymeraDynamicShop:
         "Hide Hood": 30, "Hide Vest": 35, "Hide Legwraps": 30,
         "Bone Hood": 50, "Bone Vest": 55, "Bone Legwraps": 50,
         "+1 Damage": 80, "+1 Stamina": 80, "+1 Health": 80, "+1 Luck": 80, "+1 Protection": 80,
-        "Stamina Tonic": 37, "Strong Healing Mixture": 45, "+1 Dice Face": 80, "+1 Inventory Slot": 80
+        "Stamina Tonic": 37, "Strong Healing Mixture": 45, "+1 Dice Face": 80, "+1 Inventory Slot": 80,
+
+        # NEW ITEMS
+        "Stick": 1,
+        "Sap": 6,
+        "Moss": 2,
+        "Pinecone": 3,
+        "Rock": 4,
+        "Antler": 18,
+        "Root": 6,
+        "Stone": 5,
+        "Shard": 75,
+
+        # NEW CRAFTED ITEMS
+        "ArmorReinforcementPaste": 38,
+        "ForestLuckCharm": 25,
+        "ShardInfusion": 50,
+        "MossPoultice": 22,
+        "RootWraps": 28,
+        "SturdyCraftingBase": 18,
+        "ReinforcedLegwraps": 32,
+        "AntlerHood": 40,
+        "StonyHideLegwraps": 42
     }
 
     def __init__(self, reward_tiers):
@@ -798,6 +871,47 @@ class CraftingSystem:
                     "Dock Leaves": 2
                 },
                 "success_rate": 0.5,
+                "result_quantity": 1
+            },
+
+            # Armor Reinforcement & Utility Items
+            "ArmorReinforcementPaste": {
+                "ingredients": {
+                    "Sap": 3,
+                    "Root": 2,
+                    "Pinecone": 2
+                },
+                "success_rate": 0.95,
+                "result_quantity": 1
+            },
+            "ForestLuckCharm": {
+                "ingredients": {
+                    "Pinecone": 1,
+                    "Stick": 2,
+                    "Moss": 2
+                },
+                "success_rate": 0.85,
+                "result_quantity": 1
+            },
+
+            # New Armor Pieces
+            "AntlerHood": {
+                "ingredients": {
+                    "Antler": 2,
+                    "Fur": 2,
+                    "Bone": 1
+                },
+                "success_rate": 0.85,
+                "result_quantity": 1
+            },
+
+            "StonyHideLegwraps": {
+                "ingredients": {
+                    "Stone": 3,
+                    "Hide": 2,
+                    "Sap": 2
+                },
+                "success_rate": 0.85,
                 "result_quantity": 1
             },
 
@@ -1411,15 +1525,15 @@ class Battle:
             Creature("Wolverine", "wolverine", "Howler's Rise", 15, 100, {"fur": 0.5, "claw": 0.3, "bone": 0.2, "hide": 0.2}, (10, 20), True, [], special_ability="savage_maul", luck=8),
 
             # 🌑 Gathering Place (Deadlands) Predators
-            Creature("Mutated Fox", "mfox", "Gathering Place", 16, 300,
+            Creature("Mutated Fox", "mfox", "Deadlands", 16, 300,
                  {"fur": 0.5, "tooth": 0.2, "bone": 0.2, "rotten meat": 0.1},
                  (10, 20), True, ["RED_BLIGHT"], special_ability="corrupt_fang", luck=10),
 
-            Creature("Rabid Wolf", "rwolf", "Gathering Place", 18, 400,
+            Creature("Rabid Wolf", "rwolf", "Deadlands", 18, 400,
                  {"fur": 0.5, "tooth": 0.2, "bone": 0.2, "rotten meat": 0.1},
                  (10, 20), True, ["RED_BLIGHT"], special_ability="howl_of_decay", luck=8),
 
-            Creature("Monstrous Rogue", "mrogue", "Gathering Place", 20, 800,
+            Creature("Monstrous Rogue", "mrogue", "Deadlands", 20, 800,
                  {"fur": 0.5, "claw": 0.3, "bone": 0.2, "hide": 0.2, "rotten meat": 0.1},
                  (10, 20), True, ["RED_BLIGHT"], special_ability="blight_crush", luck=7),
 
@@ -1436,21 +1550,36 @@ class Battle:
 
 
         self.plants = [
+                # Howler's Rise
                 Plant("Comfrey Root", "Howler's Rise", 0.7),
                 Plant("Goldenrod", "Howler's Rise", 0.4),
                 Plant("Horsetail", "Howler's Rise", 0.6),
+                Plant("Rock", "Howler's Rise", 0.5),
+                Plant("Antler", "Howler's Rise", 0.3),
+                Plant("Root", "Howler's Rise", 0.4),
 
+                # Whispering Pines
                 Plant("Burdock Root", "Whispering Pines", 0.2),
                 Plant("Dock Leaves", "Whispering Pines", 0.5),
                 Plant("Juniper Berries", "Whispering Pines", 0.6),
                 Plant("Marigold", "Whispering Pines", 0.5),
+                Plant("Stick", "Whispering Pines", 0.6),
+                Plant("Sap", "Whispering Pines", 0.5),
+                Plant("Moss", "Whispering Pines", 0.4),
+                Plant("Pinecone", "Whispering Pines", 0.5),
 
+                # Cinderglen
                 Plant("Blackberry Leaves", "Cinderglen", 0.4),
                 Plant("Catmint", "Cinderglen", 0.8),
                 Plant("Dock Leaves", "Cinderglen", 0.5),
                 Plant("Grass", "Cinderglen ", 0.8),
                 Plant("Thistle Patches", "Cinderglen", 0.5),
+                Plant("Stone", "Cinderglen", 0.6),
 
+                # Deadlands
+                Plant("Shard", "Deadlands", 0.3),
+
+                # Blacktide Beach
                 Plant("Seaweed", "Blacktide Beach", 0.6)
             ]
 
@@ -1574,19 +1703,49 @@ class Battle:
         ]
         self.DROP_TIERS = {
             "low": {
-                "common": ['grass', 'fur', 'feather', 'shell', 'rotten meat', 'dock leaves', 'goldenrod'],
-                "uncommon": ['blackberry leaves', 'comfrey root', 'horsetail', 'seaweed', 'small meat'],
-                "rare": ['thistle patches', 'juniper berries', 'marigold', 'burdock root']
+                "common": [
+                    'grass', 'fur', 'feather', 'shell', 'rotten meat',
+                    'dock leaves', 'goldenrod', 'stick', 'moss', 'pinecone', 'rock'
+                ],
+                "uncommon": [
+                    'blackberry leaves', 'comfrey root', 'horsetail',
+                    'seaweed', 'small meat', 'root', 'sap', 'stone'
+                ],
+                "rare": [
+                    'thistle patches', 'juniper berries', 'marigold',
+                    'burdock root', 'antler'
+                ]
             },
             "medium": {
-                "common": ['thistle patches', 'juniper berries', 'marigold', 'burdock root'],
-                "uncommon": ['claw', 'tooth', 'scale', 'venom gland', 'medium meat'],
-                "rare": ['basic healing poultice', 'wound salve', 'poison cleanser', 'fur hood', 'fur vest']
+                "common": [
+                    'thistle patches', 'juniper berries', 'marigold',
+                    'burdock root', 'root', 'sap', 'stone'
+                ],
+                "uncommon": [
+                    'claw', 'tooth', 'scale', 'venom gland', 'medium meat',
+                    'antler', 'armorreinforcementpaste', 'shardinfusion'
+                ],
+                "rare": [
+                    'basic healing poultice', 'wound salve', 'poison cleanser',
+                    'fur hood', 'fur vest', 'forestluckcharm'
+                ]
             },
             "high": {
-                "common": ['large meat', 'stamina tonic', 'strong healing mixture'],
-                "uncommon": ['spiked collar', 'defense wrap', 'fur legwraps', 'hide hood', 'hide vest', 'hide legwraps'],
-                "rare": ['+1 damage', '+1 stamina', '+1 inventory slot', 'bone hood', 'bone vest', 'bone legwraps', '+1 luck', '+1 health', '+1 protection', '+1 dice face']
+                "common": [
+                    'large meat', 'stamina tonic', 'strong healing mixture',
+                    'armorreinforcementpaste'
+                ],
+                "uncommon": [
+                    'spiked collar', 'defense wrap', 'fur legwraps',
+                    'hide hood', 'hide vest', 'hide legwraps',
+                    'antlerhood', 'stonyhidelegwraps'
+                ],
+                "rare": [
+                    '+1 damage', '+1 stamina', '+1 inventory slot',
+                    'bone hood', 'bone vest', 'bone legwraps',
+                    '+1 luck', '+1 health', '+1 protection',
+                    '+1 dice face', 'shard'
+                ]
             }
         }
     def get_item_rarity(self, drop_name):
@@ -2242,25 +2401,35 @@ class Battle:
                 "Comfrey Root": 0.7,
                 "Goldenrod": 0.7,
                 "Poppy Seeds": 0.7,
-                "Horsetail": 0.3
+                "Horsetail": 0.3,
+                "Rock": 0.5,
+                "Antler": 0.3,
+                "Root": 0.4
             },
             "Whispering Pines": {
                 "Burdock Root": 0.5,
                 "Dock Leaves": 0.4,
                 "Juniper Berries": 0.7,
                 "Marigold": 0.7,
-                "Grass": 0.3
+                "Grass": 0.3,
+                "Stick": 0.6,
+                "Sap": 0.5,
+                "Moss": 0.4,
+                "Pinecone": 0.5
             },
             "Cinderglen": {
                 "Blackberry Leaves": 0.5,
                 "Catmint": 0.7,
                 "Dock Leaves": 0.8,
                 "Grass": 0.3,
-                "Thistle Patches": 0.6
+                "Thistle Patches": 0.6,
+                "Stone": 0.6
             },
-
+            "Deadlands": {
+                "Shard": 0.3
+            },
             "Blacktide Beach": {
-                "Seaweed": 0.8,
+                "Seaweed": 0.8
             }
         }
 
