@@ -974,6 +974,13 @@ class PlayerCharacter:
                 print("[!] Invalid input format. Please try again.")
             except (EOFError, KeyboardInterrupt):
                 print("\n[!] Input failed or was interrupted. Please try again.")
+
+    def clamp_stats(self):
+        if self.stamina < 0:
+            self.stamina = 0
+        if self.health < 0:
+            self.health = 0
+
     def add_status_effect(self, effect):
         # Remove "none" if present
         if "none" in self.status_effects:
@@ -995,6 +1002,7 @@ class PlayerCharacter:
         if self.stamina >= 3:
             heal_amount = 25
             self.stamina -= 5
+            self.clamp_stats()
             target.health = min(target.max_health, target.health + heal_amount)
             log_action(f"{self.name} tends to {target.name}'s injuries, restoring {heal_amount} HP!")
             display_health(target)
@@ -1006,6 +1014,7 @@ class PlayerCharacter:
         if self.stamina >= 20:
             heal_amount = 50
             self.stamina -= 20
+            self.clamp_stats()
             target.health = min(target.max_health, target.health + heal_amount)
             log_action(f"{self.name} frantically licks {target.name}'s wounds, restoring {heal_amount} HP!")
             display_health(target)
@@ -1017,6 +1026,7 @@ class PlayerCharacter:
         if self.stamina >= 7:
             heal_amount = 25
             self.stamina -= 7
+            self.clamp_stats()
             target.health = min(target.max_health, target.health + heal_amount)
             log_action(f"{self.name} urgently nudges {target.name} back on their paws, healing {heal_amount} HP!")
             display_health(target)
@@ -1027,6 +1037,7 @@ class PlayerCharacter:
         display_header(self.name + "'s Turn")
         if self.stamina >= 3:
             self.stamina -= 3
+            self.clamp_stats()
             additional_protection = 5
             self.temp_protection += additional_protection
             log_action(f"{self.name} bristles defensively, gaining {additional_protection} protection!")
@@ -1037,6 +1048,7 @@ class PlayerCharacter:
         display_header(self.name + "'s Turn")
         if self.stamina >= 5:
             self.stamina -= 5
+            self.clamp_stats()
             additional_protection = 10
             self.temp_protection += additional_protection
             log_action(f"{self.name} drops into a defensive crouch, gaining {additional_protection} protection!")
@@ -1059,6 +1071,7 @@ class PlayerCharacter:
         display_header(self.name + "'s Turn")
         if self.stamina >= 7:
             self.stamina -= 7
+            self.clamp_stats()
             extra_damage = 15
             total_damage = self.damage + extra_damage
             target.health -= total_damage
@@ -1083,6 +1096,7 @@ class PlayerCharacter:
         display_header(self.name + "'s Turn")
         if self.stamina >= 20:
             self.stamina -= 20
+            self.clamp_stats()
             damage_per_hit = self.damage
             total_damage = damage_per_hit * 3
             target.health -= total_damage
@@ -2583,6 +2597,7 @@ class Battle:
             print("\nA sudden storm hits! Everyone loses 10 stamina.")
             for player in self.players:
                 player.stamina -= 10
+                player.clamp_stats()
                 print("\n" * 21)
                 print("\n=== PLAYER STATS ===")
                 print(f"Name:         {player.name}")
