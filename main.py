@@ -2686,7 +2686,7 @@ class Battle:
             num_creatures = random.randint(1, 3)
 
             self.creatures = []
-            fpredators = [c for c in creatures if c.is_predator]
+            predators = [c for c in creatures if c.is_predator]
             for creature in random.choices(predators, k=num_creatures):
                 new_creature = Creature(
                     creature.name,
