@@ -15,7 +15,7 @@ def input(prompt=""):
             print("[!] Input failed or was interrupted. Please try again.")
 
             
-VERSION = "4"  # ← change this manually when you update!
+VERSION = "5"  # ← change this manually when you update!
 print(f"\n🔄 SSRPG Game Version: {VERSION}\n")
 
 
@@ -25,7 +25,7 @@ print(f"\n🔄 SSRPG Game Version: {VERSION}\n")
 BLEED_DAMAGE = 5
 BURN_DAMAGE = 3
 POISON_DAMAGE = 3
-RED_BLIGHT_DAMAGE = 5  
+RED_BLIGHT_DAMAGE = 8 
 DAZE_PROBABILITY = 0.05
 
 BURN_CHANCE = 0.02
@@ -2583,7 +2583,6 @@ class Battle:
             print("\nA sudden storm hits! Everyone loses 10 stamina.")
             for player in self.players:
                 player.stamina -= 10
-                if player.stamina < 0:
                     print("\n" * 21)
                     print("\n=== PLAYER STATS ===")
                     print(f"Name:         {player.name}")
@@ -2601,6 +2600,7 @@ class Battle:
                     print(f"\n=== PLAYER LINE ===")
                     print(f"{player.name},{player.max_health},{player.health},{player.stamina},{player.max_stamina},{player.luck},{player.protection},{player.light},{player.damage},{player.temp_damage},{player.temp_protection},{','.join(player.status_effects) if player.status_effects else 'None'}")
                     print(f"\n=== PLAYER LINE ===")
+                if player.stamina < 0:
 
                     print("\n=== PLAYER STATS ===")
                     print(f"Name:         {player.name}")
