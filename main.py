@@ -1201,6 +1201,11 @@ class PlayerCharacter:
 
         # Apply the total damage taken
         self.health -= damage_taken
+        self.clamp_stats()
+
+        if self.health <= 0:
+            print(f"💀 {self.name} has succumbed to their status effects and collapses!")
+        
 
         # Check for dazed status and handle it
         if 'dazed' in self.status_effects:
@@ -2687,7 +2692,8 @@ class Battle:
             num_creatures = random.randint(1, 3)
 
             self.creatures = []
-            predators = [c for c in creatures if c.is_predator]
+            predators = [c for c in self.creature_templates if c.biome == destination and c.is_predator]
+
             for creature in random.choices(predators, k=num_creatures):
                 new_creature = Creature(
                     creature.name,
@@ -2844,6 +2850,10 @@ class Battle:
             print(f"Light      : {player.light}")
             print(f"Status     : {', '.join(player.status_effects) if player.status_effects else 'None'}")
             print("==================================")
+
+            print(f"\n=== PLAYER LINE ===")
+            print(f"{player.name},{player.max_health},{player.health},{player.stamina},{player.max_stamina},{player.luck},{player.protection},{player.light},{player.damage},{player.temp_damage},{player.temp_protection},{','.join(player.status_effects) if player.status_effects else 'None'}")
+            print(f"\n=== PLAYER LINE ===")
 
             print(f"\n[ESCAPE SUCCESS] {player.name} has left the battle.")
             return True
