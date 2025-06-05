@@ -305,8 +305,9 @@ class Creature:
         log_action(f"{self.name} activates special ability: {self.special_ability.replace('_', ' ').upper()}")
 
         def deal_and_log(dmg, message):
-            target.health -= dmg
-            log_action(message)
+            effective_damage = max(dmg - target.total_protection, 0)
+            target.health -= effective_damage
+            log_action(f"{message} ({effective_damage} after protection!)")
             display_health(target)
 
         if self.special_ability == "frenzied_bite":
