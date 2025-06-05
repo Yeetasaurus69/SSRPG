@@ -519,7 +519,7 @@ class Item:
                     matching_effect = next((s for s in target.status_effects if s.lower().strip() == effect_to_remove.lower()), None)
                     if matching_effect:
                         target.status_effects.remove(matching_effect)
-                        print(f"✅ {target.name} uses {self.name} and removes the '{effect_to_remove}' status effect!")
+                        print(f"✅ {target.name} uses {self.name} and no longer feels the '{effect_to_remove}' status effect!")
                     else:
                         print(f"❌ {target.name} does not have '{effect_to_remove}' status effect!")
                 else:
@@ -986,6 +986,9 @@ class PlayerCharacter:
             self.stamina = 0
         if self.health < 0:
             self.health = 0
+    def to_line(self):
+        status_part = ','.join(self.status_effects) if self.status_effects else 'None'
+        return f"{self.name},{self.max_health},{self.health},{self.stamina},{self.max_stamina},{self.luck},{self.protection},{self.light},{self.damage},{self.temp_damage},{self.temp_protection},{self.rest_counter},{self.current_nest},{status_part}"
 
     def add_status_effect(self, effect):
         # Remove "none" if present
@@ -1928,8 +1931,9 @@ class Battle:
                 print("====================\n")
                 
                 print(f"\n=== PLAYER LINE ===")
-                print(f"{player.name},{player.max_health},{player.health},{player.stamina},{player.max_stamina},{player.luck},{player.protection},{player.light},{player.damage},{player.temp_damage},{player.temp_protection},{player.rest_counter},{player.current_nest},{','.join(player.status_effects) if player.status_effects else 'None'}")
+                print(player.to_line())
                 print(f"=== PLAYER LINE ===\n")
+
 
                 drops, exp_gained = prey.generate_drops()
                 print(f"Drops gained: {drops}")
@@ -1965,8 +1969,9 @@ class Battle:
                 print("====================\n")
                 
                 print(f"\n=== PLAYER LINE ===")
-                print(f"{player.name},{player.max_health},{player.health},{player.stamina},{player.max_stamina},{player.luck},{player.protection},{player.light},{player.damage},{player.temp_damage},{player.temp_protection},{player.rest_counter},{player.current_nest},{','.join(player.status_effects) if player.status_effects else 'None'}")
+                print(player.to_line())
                 print(f"=== PLAYER LINE ===\n")
+
                 return
             else:
                 print(f"⚠️ The {prey.name} tries to flee... but fails.")
@@ -2305,8 +2310,9 @@ class Battle:
             print("====================\n")
             
             print(f"\n=== PLAYER LINE ===")
-            print(f"{player.name},{player.max_health},{player.health},{player.stamina},{player.max_stamina},{player.luck},{player.protection},{player.light},{player.damage},{player.temp_damage},{player.temp_protection},{player.rest_counter},{player.current_nest},{','.join(player.status_effects) if player.status_effects else 'None'}")
+            print(player.to_line())
             print(f"=== PLAYER LINE ===\n")
+
         else:
             print("\n=== PLAYER STATS ===")
             print(f"Name:         {player.name}")
@@ -2328,8 +2334,9 @@ class Battle:
             print("")
             print("")
             print(f"\n=== PLAYER LINE ===")
-            print(f"{player.name},{player.max_health},{player.health},{player.stamina},{player.max_stamina},{player.luck},{player.protection},{player.light},{player.damage},{player.temp_damage},{player.temp_protection},{player.rest_counter},{player.current_nest},{','.join(player.status_effects) if player.status_effects else 'None'}")
+            print(player.to_line())
             print(f"=== PLAYER LINE ===\n")
+
         # Inside gather_plants method, replace the creature encounter section with:
         if random.random() < self.gathering_encounter_chances[full_biome]:
             creatures = [c for c in self.creature_templates if c.biome == full_biome]
@@ -2600,8 +2607,9 @@ class Battle:
             print("====================\n")
             
             print(f"\n=== PLAYER LINE ===")
-            print(f"{player.name},{player.max_health},{player.health},{player.stamina},{player.max_stamina},{player.luck},{player.protection},{player.light},{player.damage},{player.temp_damage},{player.temp_protection},{player.rest_counter},{player.current_nest},{','.join(player.status_effects) if player.status_effects else 'None'}")
+            print(player.to_line())
             print(f"=== PLAYER LINE ===\n")
+
         encounter_chance = random.randint(1, 100)
 
         if encounter_chance <= 20:
@@ -2625,8 +2633,9 @@ class Battle:
                 print("====================\n")
                 
                 print(f"\n=== PLAYER LINE ===")
-                print(f"{player.name},{player.max_health},{player.health},{player.stamina},{player.max_stamina},{player.luck},{player.protection},{player.light},{player.damage},{player.temp_damage},{player.temp_protection},{player.rest_counter},{player.current_nest},{','.join(player.status_effects) if player.status_effects else 'None'}")
+                print(player.to_line())
                 print(f"=== PLAYER LINE ===\n")
+
                 if player.stamina < 0:
 
                     print("\n=== PLAYER STATS ===")
@@ -2665,8 +2674,9 @@ class Battle:
                 print("====================\n")
                 
                 print(f"\n=== PLAYER LINE ===")
-                print(f"{player.name},{player.max_health},{player.health},{player.stamina},{player.max_stamina},{player.luck},{player.protection},{player.light},{player.damage},{player.temp_damage},{player.temp_protection},{player.rest_counter},{player.current_nest},{','.join(player.status_effects) if player.status_effects else 'None'}")
+                print(player.to_line())
                 print(f"=== PLAYER LINE ===\n")
+
                 print("💸 While traveling, your group uncovers a cleverly hidden stash left by another clan! Everyone receives a surprise prize. 💸")
             elif event_type == "healer":
                 for player in self.players:
@@ -2676,8 +2686,9 @@ class Battle:
                     print(f"{player.name}'s stats are now: HP={player.health}/{player.max_health}, Stamina={player.stamina}/{player.max_stamina}")
                 print("\nYou meet a traveling medicine cat who treats your wounds and replenishes your energy.!")
                 print(f"\n=== PLAYER LINE ===")
-                print(f"{player.name},{player.max_health},{player.health},{player.stamina},{player.max_stamina},{player.luck},{player.protection},{player.light},{player.damage},{player.temp_damage},{player.temp_protection},{player.rest_counter},{player.current_nest},{','.join(player.status_effects) if player.status_effects else 'None'}")
+                print(player.to_line())
                 print(f"=== PLAYER LINE ===\n")
+
 
                 print("\n=== PLAYER STATS ===")
                 print(f"Name:         {player.name}")
@@ -2812,8 +2823,9 @@ class Battle:
         for player in self.players:
             print("")
             print(f"\n=== PLAYER LINE ===")
-            print(f"{player.name},{player.max_health},{player.health},{player.stamina},{player.max_stamina},{player.luck},{player.protection},{player.light},{player.damage},{player.temp_damage},{player.temp_protection},{player.rest_counter},{player.current_nest},{','.join(player.status_effects) if player.status_effects else 'None'}")
+            print(player.to_line())
             print(f"=== PLAYER LINE ===\n")
+
             print("")
             print(f"\n--- {player.name}'s Final Stats ---")
             print(f"Health     : {player.health}/{player.max_health}")
@@ -2859,8 +2871,9 @@ class Battle:
             print("==================================")
 
             print(f"\n=== PLAYER LINE ===")
-            print(f"{player.name},{player.max_health},{player.health},{player.stamina},{player.max_stamina},{player.luck},{player.protection},{player.light},{player.damage},{player.temp_damage},{player.temp_protection},{player.rest_counter},{player.current_nest},{','.join(player.status_effects) if player.status_effects else 'None'}")
+            print(player.to_line())
             print(f"=== PLAYER LINE ===\n")
+
 
             print(f"\n[ESCAPE SUCCESS] {player.name} has left the battle.")
             return True
@@ -3211,8 +3224,9 @@ class Battle:
                 print("====================\n")
 
                 print(f"\n=== PLAYER LINE ===")
-                print(f"{player.name},{player.max_health},{player.health},{player.stamina},{player.max_stamina},{player.luck},{player.protection},{player.light},{player.damage},{player.temp_damage},{player.temp_protection},{player.rest_counter},{player.current_nest},{','.join(player.status_effects) if player.status_effects else 'None'}")
+                print(player.to_line())
                 print(f"=== PLAYER LINE ===\n")
+
             elif choice == '2':
                 nest = player.current_nest
                 rest_penalty = player.rest_counter * 3
@@ -3262,8 +3276,9 @@ class Battle:
                 print(f"Status:       {player.status_effects}")
                 print("====================\n")
                 print(f"\n=== PLAYER LINE ===")
-                print(f"{player.name},{player.max_health},{player.health},{player.stamina},{player.max_stamina},{player.luck},{player.protection},{player.light},{player.damage},{player.temp_damage},{player.temp_protection},{player.rest_counter},{player.current_nest},{','.join(player.status_effects) if player.status_effects else 'None'}")
+                print(player.to_line())
                 print(f"=== PLAYER LINE ===\n")
+
             elif choice == '3':
                 # Use the Battle class's items list instead of player inventory
                 if self.items:
@@ -3464,8 +3479,9 @@ class Battle:
                             print(f"Status:       {player.status_effects}")
                             print("====================\n")
                             print(f"\n=== PLAYER LINE ===")
-                            print(f"{player.name},{player.max_health},{player.health},{player.stamina},{player.max_stamina},{player.luck},{player.protection},{player.light},{player.damage},{player.temp_damage},{player.temp_protection},{player.rest_counter},{player.current_nest},{','.join(player.status_effects) if player.status_effects else 'None'}")
+                            print(player.to_line())
                             print(f"=== PLAYER LINE ===\n")
+
                         self.items_used[item.name] = self.items_used.get(item.name, 0) + 1
                     else:
                         print("Invalid target selection.")
