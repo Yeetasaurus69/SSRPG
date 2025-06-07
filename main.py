@@ -15,7 +15,7 @@ def input(prompt=""):
             print("[!] Input failed or was interrupted. Please try again.")
 
             
-VERSION = "5"  # ← change this manually when you update!
+VERSION = "6"  # ← change this manually when you update!
 print(f"\n🔄 SSRPG Game Version: {VERSION}\n")
 
 
@@ -582,24 +582,39 @@ class ShadowLottery:
                 'Stamina Tonic', 'Strong Healing Mixture', 'Defense Wrap'
             ],
             'Stats': [
-                '+1 Luck', '+1 Damage', '+1 Health', '+1 Protection', '+1 Stamina', '+1 Inventory Slot', '+1 Dice Face', 'Frantic Licks Ability','Bristle Ability','Noxious Snarl Ability'
+                '+1 Luck', '+1 Damage', '+1 Health', '+1 Protection',
+                '+1 Stamina', '+1 Inventory Slot', '+1 Dice Face',
+                'Frantic Licks Ability', 'Bristle Ability', 'Noxious Snarl Ability'
             ],
             'Food': [
                 'Small Meat', 'Medium Meat', 'Large Meat'
             ]
         }
 
+        # Rarity weighting per category (lower weight = rarer)
+        self.category_weights = {
+            'Armor': 5,
+            'Accessories': 3,
+            'Stats': 2,
+            'Materials': 10,
+            'Consumables': 8,
+            'Food': 12
+        }
+
     def draw_lottery(self, num_draws=1):
         results = []
+
+        categories = list(self.prizes.keys())
+        weights = [self.category_weights[cat] for cat in categories]
+
         for _ in range(num_draws):
-            # Choose a random category
-            category = random.choice(list(self.prizes.keys()))
-            # Choose only one random item from that category
+            # Draw category with weights
+            category = random.choices(categories, weights=weights, k=1)[0]
             item = random.choice(self.prizes[category])
 
             results.append({
                 'category': category,
-                'item': item,
+                'item': item
             })
         return results
 
@@ -2200,24 +2215,26 @@ class Battle:
     def shadow_lottery(self):
         lottery = ShadowLottery()
         print("\n" * 21)
-        print("\n=== SHADOW LOTTERY ===")
+        print("🎲 === SHADOW LOTTERY ===")
         print("How many draws would you like?")
 
         try:
             num_draws = int(input("Enter number of draws: "))
             if num_draws < 1:
-                print("Must draw at least once!")
+                print("⚠️ Must draw at least once!")
                 return
 
             results = lottery.draw_lottery(num_draws)
 
             print("\n" * 21)
-            print("\n=== LOTTERY RESULTS ===")
+            print("🎉 === LOTTERY RESULTS ===")
             for i, result in enumerate(results, 1):
-                print(f"\nDraw #{i}:")
-                print(f"Category: {result['category']}")
-                print(f"Item won: {result['item']}")
-                print("\n===          ===")
+                print(f"Item Won: {result['item']}")
+            print("\n🎲 === END OF LOTTERY ===\n")
+
+        except ValueError:
+            print("❌ Invalid input! Please enter a number.")
+
 
         except ValueError:
             print("Please enter a valid number")
