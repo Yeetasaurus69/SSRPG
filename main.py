@@ -2020,13 +2020,13 @@ class Battle:
 
             # Display encounter message
             print("\n" * 3)
-            print("\n=== ENCOUNTER ===\n")
+            print("\n=== ⚠ ENCOUNTER ⚠ ===\n")
             encounter_counts = {}
             for creature in self.creatures:
                 encounter_counts[creature.name] = encounter_counts.get(creature.name, 0) + 1
             print("After the hunt, you've encountered: " +
                   ", ".join(f"{v} {k}" for k, v in encounter_counts.items()) + "!\n")
-            print("\n=== ENCOUNTER ===\n")
+            print("\n=== ⚠ ENCOUNTER ⚠ ===\n")
             self.start_battle()
 
 
@@ -2381,13 +2381,13 @@ class Battle:
 
             # Clear screen and display formatted encounter message
             print("\n" * 3)  # Print 21 empty lines to clear screen
-            print("\n=== ENCOUNTER ===")
+            print("\n=== ⚠ ENCOUNTER ⚠ ===")
             print("")
             encounter_message = "While gathering, you've encountered: "
             encounter_details = [f"{count} {name}" for name, count in creature_counts.items()]
             print(encounter_message + ", ".join(encounter_details) + "!")
             print("")
-            print("\n=== ENCOUNTER ===")
+            print("\n=== ⚠ ENCOUNTER ⚠ ===")
 
             self.start_battle()
 
@@ -3429,7 +3429,7 @@ class Battle:
         print("============================\n")
 
         print("=== PLAYER LINE ===")
-        print(f"{player.name},{player.max_health},{player.health},{player.stamina},{player.max_stamina},{player.luck},{player.protection},{player.light},{player.damage},{player.temp_damage},{player.temp_protection},{','.join(player.status_effects) if player.status_effects else 'None'}")
+        print(player.to_line())
         print("====================")
 
 
