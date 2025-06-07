@@ -1423,7 +1423,7 @@ class Battle:
             "Whispering Pines": 0.4, # 40% chance to encounter creatures
             "Cinderglen": 0.3, # 20% chance to encounter creatures
             "Deadlands": 0.7, # 20% chance to encounter creatures
-            "Blacktide Beach": 0.5 # 20% chance to encounter creatures
+            "Blacktide Beach": 0.4 # 20% chance to encounter creatures
         }
 
         self.biomes = {
@@ -1851,8 +1851,16 @@ class Battle:
             # 🔧 PATCHED FUNCTIONS (HUNTING DIFFICULTY TUNING) 🔧
 
             # Updated run_hunting_minigame with stamina + counterattack + better flee + player stats display
-
-    def run_hunting_minigame(self, player, prey):
+    def _convert_biome_name(self, name_or_abbr):
+        abbr_map = {
+            "wp": "Whispering Pines",
+            "cg": "Cinderglen",
+            "hr": "Howler's Rise",
+            "dl": "Deadlands",
+            "bb": "Blacktide Beach"
+        }
+        return abbr_map.get(name_or_abbr.lower(), name_or_abbr)
+    def run_hunting_minigame(self, player, prey, biome):
         import time
         turn = 1
         flee_chance = 0.15
@@ -1942,6 +1950,8 @@ class Battle:
                 for item, quantity in drops.items():
                     self.total_drops[item] = self.total_drops.get(item, 0) + quantity
                 self.total_exp += exp_gained
+                self._maybe_trigger_posthunt_encounter(biome)
+
                 return
 
             # Attempt prey escape
@@ -1971,6 +1981,8 @@ class Battle:
                 print(f"\n=== PLAYER LINE ===")
                 print(player.to_line())
                 print(f"=== PLAYER LINE ===\n")
+                self._maybe_trigger_posthunt_encounter(biome)
+
 
                 return
             else:
@@ -2484,8 +2496,17 @@ class Battle:
                 if not self.players:
                     self.prompt_for_players()
                 if self.players:
-                    print("\n🎯 Available prey to hunt:")
-                    prey_input = input("Enter the abbreviation of the prey you want to hunt: ").strip().lower()
+                    current_biome = input("Which biome are you hunting in?: ").strip().capitalize()
+                    full_biome = None
+                    for biome, abbrev in BIOME_ABBREVIATIONS.items():
+                        if current_biome.upper() == abbrev or current_biome.lower() == biome.lower():
+                            full_biome = biome
+                            break
+
+                    if not full_biome or full_biome not in self.biomes:
+                        print("Invalid biome selected. Please try again.")
+                
+                    prey_input = input("🎯 Enter the abbreviation of the prey you want to hunt: ").strip().lower()
             
                     # Search directly in creature_templates for prey matching the abbreviation
                     selected_prey = next(
@@ -2509,8 +2530,10 @@ class Battle:
                         except ValueError:
                             print("Invalid input. Defaulting to first player.")
                             player = self.players[0]
+
+                
             
-                        self.run_hunting_minigame(player, selected_prey)
+                        self.run_hunting_minigame(player, selected_prey, full_biome)
                     else:
                         print("❌ No prey found with that abbreviation. Please try again.")
                 continue
