@@ -526,7 +526,7 @@ class Item:
                     print("❌ status_effects is not a list, cannot remove anything.")
 
         status_effects = ','.join(target.status_effects) if target.status_effects else "None"
-        print(f"{target.name},{target.max_health},{target.health},{target.stamina},{target.max_stamina},{target.luck},{target.protection},{target.light},{target.damage},{target.temp_damage},{target.temp_protection},{','.join(target.status_effects) if target.status_effects else 'None'}")
+        print(target.to_line())
 
 # Shortcut constructor
 cls = lambda name, effects: Item(name, effects)
@@ -2591,6 +2591,7 @@ class Battle:
             player.stamina -= stamina_cost
             player.rest_counter = 0
             print("\n" * 21)
+            print("\n====== TRAVEL SUMMARY ======")
             print(f"{player.name} travels swiftly from {starting_biome} to {destination_biome} and it takes {stamina_cost} stamina.")
 
             print("\n=== PLAYER STATS ===")
@@ -2618,7 +2619,6 @@ class Battle:
             for player in self.players:
                 player.stamina -= 10
                 player.clamp_stats()
-                print("\n" * 21)
                 print("\n=== PLAYER STATS ===")
                 print(f"Name:         {player.name}")
                 print(f"Max Health:   {player.max_health}")
@@ -2658,7 +2658,6 @@ class Battle:
         elif encounter_chance <= 50:
             event_type = random.choice(["cache", "healer"])
             if event_type == "cache":
-                print("\n" * 21)
 
                 print("\n=== PLAYER STATS ===")
                 print(f"Name:         {player.name}")
@@ -2682,7 +2681,6 @@ class Battle:
                 for player in self.players:
                     player.health = player.max_health
                     player.stamina = player.max_stamina
-                    print("\n" * 21)
                     print(f"{player.name}'s stats are now: HP={player.health}/{player.max_health}, Stamina={player.stamina}/{player.max_stamina}")
                 print("\nYou meet a traveling medicine cat who treats your wounds and replenishes your energy.!")
                 print(f"\n=== PLAYER LINE ===")
@@ -2709,7 +2707,7 @@ class Battle:
             num_creatures = random.randint(1, 3)
 
             self.creatures = []
-            predators = [c for c in self.creature_templates if c.biome == destination and c.is_predator]
+            predators = [c for c in self.creature_templates if c.biome == destination_biome and c.is_predator]
 
             for creature in random.choices(predators, k=num_creatures):
                 new_creature = Creature(
