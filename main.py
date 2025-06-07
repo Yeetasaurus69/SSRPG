@@ -2230,6 +2230,7 @@ class Battle:
             print("🎉 === LOTTERY RESULTS ===")
             for i, result in enumerate(results, 1):
                 print(f"Item Won: {result['item']}")
+                print("")
             print("\n🎲 === END OF LOTTERY ===\n")
 
         except ValueError:
