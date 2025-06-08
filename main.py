@@ -1487,6 +1487,31 @@ class Battle:
                 "minions": ["Fox", "Weakened Fox"]
             },
             {
+                "name": "Raivyr",
+                "abbreviation": "R",
+                "damage": 5,
+                "health": 650,
+                "drops": {
+                    "feather": 0.9,
+                    "fur": 0.9,
+                    "+3DMG": 0.06,
+                    "+5HP": 0.2,
+                    "+1Protection": 0.1,
+                    "+4Luck": 0.15,
+                    "+1DMG": 0.2,
+                    "+1HP": 0.2,
+                    "+1Protection": 0.18,
+                    "+1Luck": 0.15,
+                    "+2Inventory": 0.01
+                },
+                "exp_range": (180, 250),
+                "is_predator": True,
+                "status_effects": ["bleeding"],
+                "special_ability": "savage_maul",
+                "luck": 9,
+                "minions": ["Crow", "Gull"]
+            },
+            {
                 "name": "Carrion Crown",
                 "abbreviation": "CC",
                 "damage": 5,
@@ -3459,7 +3484,15 @@ class Battle:
         item = next((i for i in self.items if i.abbreviation == abbrev), None)
 
         if item:
-            # For healing/support items, allow targeting other players
+            try:
+                quantity = int(input(f"How many {item.name} do you want to use? "))
+                if quantity <= 0:
+                    print("You must use at least one.")
+                    return
+            except ValueError:
+                print("Invalid number.")
+                return
+
             if any(k in item.effects for k in ['heal', 'remove_status', 'stamina', 'boost_protection']):
                 print("\nChoose target player:")
                 for idx, pl in enumerate(self.players, 1):
@@ -3471,63 +3504,65 @@ class Battle:
                         target = self.players[target_idx]
 
                         display_header(player.name + "'s Turn")
-                        item.use(target)  # 🟢 Use the item's full internal logic
-                        self.items_used[item.name] = self.items_used.get(item.name, 0) + 1
+
+                        raw_heal = 0
+                        raw_stamina = 0
+                        total_protection = 0
+                        removed_status = None
+
+                        for _ in range(quantity):
+                            for effect, value in item.effects.items():
+                                if effect == "heal":
+                                    raw_heal += value
+                                    healed = min(value, target.max_health - target.health)
+                                    target.health += healed
+
+                                elif effect == "stamina":
+                                    raw_stamina += value
+                                    restored = min(value, target.max_stamina - target.stamina)
+                                    target.stamina += restored
+
+                                elif effect == "boost_protection":
+                                    target.temp_protection += value
+                                    total_protection += value
+
+                                elif effect == "remove_status":
+                                    effect_removers = {
+                                        "Wound Salve": "bleeding",
+                                        "Poison Cleanser": "poison",
+                                        "Catmint": "illness",
+                                        "Burdock Root": "poison",
+                                        "Corrupted Cleanse": "RED_BLIGHT",
+                                        "Moonstone Tonic": "RED_BLIGHT",
+                                    }
+                                    effect_to_remove = effect_removers.get(item.name)
+                                    if isinstance(target.status_effects, list):
+                                        match = next((s for s in target.status_effects if s.lower() == effect_to_remove.lower()), None)
+                                        if match:
+                                            target.status_effects.remove(match)
+                                            removed_status = effect_to_remove
+
+                        if raw_heal:
+                            print(f"{target.name} healed {raw_heal} HP total!")
+                        if raw_stamina:
+                            print(f"{target.name} regained {raw_stamina} stamina total!")
+                        if total_protection:
+                            print(f"{target.name} gained {total_protection} protection total!")
+                        if removed_status:
+                            print(f"{target.name} is no longer affected by {removed_status}.")
+
+                        print(target.to_line())
+                        self.items_used[item.name] = self.items_used.get(item.name, 0) + quantity
+                        print(f"\n✅ Used {quantity} x {item.name} on {target.name}.\n")
                     else:
                         print("Invalid target selection.")
                 except ValueError:
                     print("Please enter a valid number.")
-
             else:
-                # For offensive/damage items
-                print("\nChoose target:")
-                all_targets = []
-
-                # Add creatures to targets
-                for creature in self.creatures:
-                    if creature.health > 0:
-                        all_targets.append(('creature', creature))
-
-                # Add players to targets
-                for pl in self.players:
-                    all_targets.append(('player', pl))
-
-                # Display all targets
-                for idx, (target_type, target) in enumerate(all_targets, 1):
-                    print(f"{idx}. {target.name} ({target_type}) - HP: {target.health}/{target.max_health}")
-
-                try:
-                    target_idx = int(input("Enter target number: ")) - 1
-                    if 0 <= target_idx < len(all_targets):
-                        target_type, target = all_targets[target_idx]
-
-                        # 🟥 You can customize offensive logic here as needed
-                        if item.item_type == 'damage':
-                            target.health -= item.effect_value
-                            print(f"{target.name} felt sick and took {item.effect_value} damage!")
-                            print("\n=== PLAYER STATS ===")
-                            print(f"Name:         {player.name}")
-                            print(f"Max Health:   {player.max_health}")
-                            print(f"Health:       {player.health}")
-                            print(f"Max Stamina:  {player.max_stamina}")
-                            print(f"Stamina:      {player.stamina}")
-                            print(f"Luck:         {player.luck}")
-                            print(f"Protection:   {player.protection}")
-                            print(f"Light:        {player.light}")
-                            print(f"Damage:       {player.damage}")
-                            print(f"Status:       {player.status_effects}")
-                            print("====================\n")
-                            print(f"\n=== PLAYER LINE ===")
-                            print(player.to_line())
-                            print(f"=== PLAYER LINE ===\n")
-
-                        self.items_used[item.name] = self.items_used.get(item.name, 0) + 1
-                    else:
-                        print("Invalid target selection.")
-                except ValueError:
-                    print("Please enter a valid number.")
+                print("This item doesn't have healing/support effects yet handled.")
         else:
             print("Item not found.")
+
 
 
     def sell_items(self, item_values):
