@@ -15,7 +15,7 @@ def input(prompt=""):
             print("[!] Input failed or was interrupted. Please try again.")
 
             
-VERSION = "6"  # ← change this manually when you update!
+VERSION = "7"  # ← change this manually when you update!
 print(f"\n🔄 SSRPG Game Version: {VERSION}\n")
 
 
@@ -3268,9 +3268,17 @@ class Battle:
                     stam_gain = max(8 - rest_penalty, 0)
                     hp_gain = 3
 
-                print(f"{player.name} naps and recovers {stam_gain} stamina and {hp_gain} HP.")
-                player.stamina += stam_gain
-                player.health += hp_gain
+                before_stam = player.stamina
+                before_hp = player.health
+
+                player.stamina = min(player.stamina + stam_gain, player.max_stamina)
+                player.health = min(player.health + hp_gain, player.max_health)
+
+                actual_stam = player.stamina - before_stam
+                actual_hp = player.health - before_hp
+
+                print(f"{player.name} naps and recovers {actual_stam} stamina and {actual_hp} HP.")
+
                 player.clamp_stats()
                 player.rest_counter += 1
                 print("")
@@ -3322,9 +3330,17 @@ class Battle:
                     stam_gain = max(8 - rest_penalty, 0)
                     hp_gain = 3
 
-                print(f"{player.name} naps and recovers {stam_gain} stamina and {hp_gain} HP.")
-                player.stamina += stam_gain
-                player.health += hp_gain
+                before_stam = player.stamina
+                before_hp = player.health
+
+                player.stamina = min(player.stamina + stam_gain, player.max_stamina)
+                player.health = min(player.health + hp_gain, player.max_health)
+
+                actual_stam = player.stamina - before_stam
+                actual_hp = player.health - before_hp
+
+                print(f"{player.name} SLEEPS and recovers {actual_stam} stamina and {actual_hp} HP.")
+
                 player.clamp_stats()
                 player.rest_counter += 1
                 print("\n=== PLAYER STATS ===")
