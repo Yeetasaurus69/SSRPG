@@ -15,7 +15,7 @@ def input(prompt=""):
             print("[!] Input failed or was interrupted. Please try again.")
 
             
-VERSION = "7"  # ← change this manually when you update!
+VERSION = "8"  # ← change this manually when you update!
 print(f"\n🔄 SSRPG Game Version: {VERSION}\n")
 
 
@@ -1713,12 +1713,12 @@ class Battle:
         print("\n--- Drops Gained ---")
         if drops:
             for item, qty in drops.items():
-                print(f"* {item} x{qty}")
+                print("")
         else:
-            print("None")
+            print("")
 
     def log_exp(exp):
-        print(f"\n>> Party gained {exp} EXP!")
+        print("")
 
     def log_item_use(user, target, item, effect):
         print("\n--- Item Use ---")
@@ -1985,7 +1985,6 @@ class Battle:
 
                 drops, exp_gained = prey.generate_drops()
                 print(f"Drops gained: {drops}")
-                print(f"Experience gained: {exp_gained}")
 
                 for item, quantity in drops.items():
                     self.total_drops[item] = self.total_drops.get(item, 0) + quantity
@@ -3640,9 +3639,6 @@ class Battle:
 
             self.total_exp += exp_gained
 
-            print(f"Drops gained: {drops}")
-            print(f"Experience gained: {exp_gained}")
-
             if target_creature in self.creatures:
                 self.creatures.remove(target_creature)
 
@@ -3822,8 +3818,6 @@ class Battle:
                 for item, quantity in drops.items():
                     self.total_drops[item] = self.total_drops.get(item, 0) + quantity
                 self.total_exp += exp_gained
-                print(f"Drops gained: {drops}")
-                print(f"Experience gained: {exp_gained}")
     
                 # ✅ ✅ ✅ FIX INSERTED HERE
                 if active_creature in self.creatures:
