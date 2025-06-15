@@ -15,7 +15,7 @@ def input(prompt=""):
             print("[!] Input failed or was interrupted. Please try again.")
 
             
-VERSION = "8"  # ← change this manually when you update!
+VERSION = "9"  # ← change this manually when you update!
 print(f"\n🔄 SSRPG Game Version: {VERSION}\n")
 
 
@@ -3235,33 +3235,40 @@ class Battle:
     def recover_menu(self, player):
         """Handle recovery options for the player."""
         while True:
-            print("")
-            print("")
             print("\nRecovery Options:")
             print("1. Nap (Recover 10 stamina)")
             print("2. Sleep (Recover 25 stamina)")
             print("3. Use Item")
             print("4. Back")
             print("5. CREATURE Encounter")
-            print("6. Equip/Unequip Armor")
-            print("")
-            print("")
+            print("6. Equip/Unequip Armor\n")
 
             choice = input("Choose an option: ").strip()
 
-            if choice == '1':
+            if choice in ['1', '2']:
                 nest = player.current_nest
                 rest_penalty = player.rest_counter * 3
 
+                # Base values depending on nap/sleep
+                if choice == '1':
+                    base_stam = 10
+                    base_hp = 5
+                    action_word = "naps"
+                else:
+                    base_stam = 25
+                    base_hp = 10
+                    action_word = "SLEEPS"
+
+                # Adjust based on nest type
                 if nest == "Broken Nest":
-                    stam_gain = max(10 - rest_penalty, 0)
-                    hp_gain = 5
+                    stam_gain = base_stam - rest_penalty
+                    hp_gain = base_hp - rest_penalty
                 elif nest == "Woven Nest":
-                    stam_gain = max(15 - rest_penalty, 0)
-                    hp_gain = 10
+                    stam_gain = base_stam + 5 - rest_penalty
+                    hp_gain = base_hp + 5 - rest_penalty
                 elif nest == "Padded Nest":
-                    stam_gain = max(20 - rest_penalty, 0)
-                    hp_gain = 15
+                    stam_gain = base_stam + 10 - rest_penalty
+                    hp_gain = base_hp + 10 - rest_penalty
                 elif nest == "Fortified Den":
                     stam_gain = player.max_stamina
                     hp_gain = 25
@@ -3270,30 +3277,32 @@ class Battle:
                     stam_gain = player.max_stamina
                     hp_gain = player.max_health
                     player.rest_counter = 0
-
                     if player.status_effects and random.random() <= 0.05:
                         removed = random.choice(player.status_effects)
                         player.status_effects.remove(removed)
                         print(f"The nest hums softly... {player.name} feels lighter. Status effect removed: {removed}")
-
                 else:
-                    stam_gain = max(8 - rest_penalty, 0)
-                    hp_gain = 3
+                    stam_gain = base_stam - rest_penalty
+                    hp_gain = base_hp - rest_penalty
+
+
+                # Clamp healing to non-negative
+                stam_gain = max(stam_gain, 0)
+                hp_gain = max(hp_gain, 0)
 
                 before_stam = player.stamina
                 before_hp = player.health
 
+                # Apply clamped healing
                 player.stamina = min(player.stamina + stam_gain, player.max_stamina)
                 player.health = min(player.health + hp_gain, player.max_health)
 
-                actual_stam = player.stamina - before_stam
-                actual_hp = player.health - before_hp
-
-                print(f"{player.name} naps and recovers {actual_stam} stamina and {actual_hp} HP.")
+                # Display intended healing
+                print(f"{player.name} {action_word} and recovers {stam_gain} stamina and {hp_gain} HP.")
 
                 player.clamp_stats()
                 player.rest_counter += 1
-                print("")
+
                 print("\n=== PLAYER STATS ===")
                 print(f"Name:         {player.name}")
                 print(f"Max Health:   {player.max_health}")
@@ -3307,72 +3316,11 @@ class Battle:
                 print(f"Status:       {player.status_effects}")
                 print("====================\n")
 
-                print(f"\n=== PLAYER LINE ===")
+                print(f"=== PLAYER LINE ===")
                 print(player.to_line())
-                print(f"=== PLAYER LINE ===\n")
-
-            elif choice == '2':
-                nest = player.current_nest
-                rest_penalty = player.rest_counter * 3
-
-                if nest == "Broken Nest":
-                    stam_gain = max(10 - rest_penalty, 0)
-                    hp_gain = 5
-                elif nest == "Woven Nest":
-                    stam_gain = max(15 - rest_penalty, 0)
-                    hp_gain = 10
-                elif nest == "Padded Nest":
-                    stam_gain = max(20 - rest_penalty, 0)
-                    hp_gain = 15
-                elif nest == "Fortified Den":
-                    stam_gain = player.max_stamina
-                    hp_gain = 25
-                    player.rest_counter = 0
-                elif nest == "Luxury Hollow":
-                    stam_gain = player.max_stamina
-                    hp_gain = player.max_health
-                    player.rest_counter = 0
-
-                    if player.status_effects and random.random() <= 0.05:
-                        removed = random.choice(player.status_effects)
-                        player.status_effects.remove(removed)
-                        print(f"The nest hums softly... {player.name} feels lighter. Status effect removed: {removed}")
-
-                else:
-                    stam_gain = max(8 - rest_penalty, 0)
-                    hp_gain = 3
-
-                before_stam = player.stamina
-                before_hp = player.health
-
-                player.stamina = min(player.stamina + stam_gain, player.max_stamina)
-                player.health = min(player.health + hp_gain, player.max_health)
-
-                actual_stam = player.stamina - before_stam
-                actual_hp = player.health - before_hp
-
-                print(f"{player.name} SLEEPS and recovers {actual_stam} stamina and {actual_hp} HP.")
-
-                player.clamp_stats()
-                player.rest_counter += 1
-                print("\n=== PLAYER STATS ===")
-                print(f"Name:         {player.name}")
-                print(f"Max Health:   {player.max_health}")
-                print(f"Health:       {player.health}")
-                print(f"Max Stamina:  {player.max_stamina}")
-                print(f"Stamina:      {player.stamina}")
-                print(f"Luck:         {player.luck}")
-                print(f"Protection:   {player.protection}")
-                print(f"Light:        {player.light}")
-                print(f"Damage:       {player.damage}")
-                print(f"Status:       {player.status_effects}")
-                print("====================\n")
-                print(f"\n=== PLAYER LINE ===")
-                print(player.to_line())
-                print(f"=== PLAYER LINE ===\n")
+                print("=== PLAYER LINE ===\n")
 
             elif choice == '3':
-                # Use the Battle class's items list instead of player inventory
                 if self.items:
                     self.use_item(player)
                 else:
@@ -3380,29 +3328,30 @@ class Battle:
 
             elif choice == '4':
                 break
+
             elif choice == '6':
                 self.armor_menu(player)
 
             elif choice == '5':
                 biome_input = input("What biome are you in?: ").strip().capitalize()
                 full_biome = None
-    
+
                 for biome, abbrev in BIOME_ABBREVIATIONS.items():
                     if biome_input.upper() == abbrev or biome_input.lower() == biome.lower():
                         full_biome = biome
                         break
-    
+
                 if not full_biome or full_biome not in self.biomes:
                     print("Invalid biome. Returning to menu.")
                     continue
-    
+
                 if random.random() > 0.35:
                     print(f"{player.name} encountered no beasts.")
                     continue
-    
+
                 possible_creatures = [c for c in self.creature_templates if c.biome == full_biome]
                 num_creatures = random.randint(1, 2)
-    
+
                 self.creatures = []
                 predators = [c for c in possible_creatures if c.is_predator]
                 for creature in random.choices(predators, k=num_creatures):
@@ -3421,7 +3370,7 @@ class Battle:
                     )
                     new_creature.reset_health()
                     self.creatures.append(new_creature)
-    
+
                 print("\n=== CREATURE ENCOUNTER ===")
                 creature_summary = {}
                 for creature in self.creatures:
@@ -3429,11 +3378,12 @@ class Battle:
                 summary = ", ".join(f"{count} {name}" for name, count in creature_summary.items())
                 print(f"{player.name} encountered {summary}!")
                 print("===========================\n")
-    
+
                 self.start_battle()
 
             else:
                 print("Invalid option. Please try again.")
+
             
 
     def armor_menu(self, player):
