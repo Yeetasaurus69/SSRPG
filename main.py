@@ -2819,44 +2819,57 @@ class Battle:
             print(f"Not enough stamina! Required: 10, Current: {current_player.stamina}")
 
     def initiate_battle(self):
-        #print("Choose a creature to fight:")
-
-        #for creature in self.creature_templates:
-            #print(f"{creature.abbreviation}: {creature.name}")
-
         creature_abbrev = input("Enter the abbreviation of the creature to battle: ").strip().upper()
 
-        # Find the selected creature
         selected_creature = next((c for c in self.creature_templates if c.abbreviation.lower() == creature_abbrev.lower()), None)
         if not selected_creature:
             print("Invalid creature abbreviation.")
             return
 
-        num_creatures = random.randint(1, 4)  # Roll for 1 to 4 of the selected creature
-        self.creatures = [Creature(
-            selected_creature.name,
-            selected_creature.abbreviation,
-            selected_creature.biome,
-            selected_creature.damage,
-            selected_creature.max_health,
-            selected_creature.drops,
-            selected_creature.exp_range,
-            selected_creature.is_predator,
-            selected_creature.status_effects,
-            selected_creature.special_ability,   # ← THIS WAS MISSING
-            selected_creature.luck
-        ) for _ in range(num_creatures)]
+        while True:
+            print("")
+            choice = input("Would you like to (R)oll for a random number of enemies (1-4) or (C)hoose how many? ").strip().lower()
+            if choice == 'r':
+                num_creatures = random.randint(1, 4)
+                break
+            elif choice == 'c':
+                try:
+                    print("")
+                    num_creatures = int(input("Enter how many enemies to fight: ").strip())
+                    if num_creatures > 0:
+                        break
+                    else:
+                        print("Please enter a number between 1 and 10.")
+                except ValueError:
+                    print("Invalid number. Try again.")
+            else:
+                print("Please enter R for random or C to choose.")
+
+        self.creatures = [
+            Creature(
+                selected_creature.name,
+                selected_creature.abbreviation,
+                selected_creature.biome,
+                selected_creature.damage,
+                selected_creature.max_health,
+                selected_creature.drops,
+                selected_creature.exp_range,
+                selected_creature.is_predator,
+                selected_creature.status_effects,
+                selected_creature.special_ability,
+                selected_creature.luck
+            ) for _ in range(num_creatures)
+        ]
+
         print("\n" * 21)
         print("\n--- 🐾 CREATURE(S) ENCOUNTERED 🐾 ---")
         print(f"You will face ⚠️ {num_creatures} {selected_creature.name}(s) ⚠️!")
-
-        # Display the creatures being fought
         for creature in self.creatures:
             print(f"- {creature}")
 
-
-        self.current_creature_index = 0  # Reset index for the new battle
+        self.current_creature_index = 0
         self.start_battle()
+
 
     def check_battle_end_conditions(self):
         if all(p in self.escaped_players for p in self.players):
