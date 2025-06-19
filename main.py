@@ -584,7 +584,7 @@ class ShadowLottery:
             'Stats': [
                 '+1 Luck', '+1 Damage', '+1 Health', '+1 Protection',
                 '+1 Stamina', '+1 Inventory Slot', '+1 Dice Face',
-                'Frantic Licks Ability', 'Bristle Ability', 'Noxious Snarl Ability'
+                'Frantic Licks Ability', 'Bristle Ability', 'Noxious Snarl Ability', 'TAUNT'
             ],
             'Food': [
                 'Small Meat', 'Medium Meat', 'Large Meat'
@@ -1021,6 +1021,16 @@ class PlayerCharacter:
         log_action(f"{self.name} grooms {target.name}'s wounds, restoring {heal_amount} HP!")
         display_health(target)
 
+    def taunt(self, battle):
+        display_header(self.name + "'s Turn")
+        if self.stamina >= 5:
+            self.stamina -= 5
+            battle.taunted_by = self
+            battle.taunt_turns_remaining = 5  # Lasts 5 turns
+            log_action(f"{self.name} lets out a loud taunt, drawing all enemy attention for 5 turns!")
+        else:
+            log_action(f"{self.name} doesn't have the strength to taunt!")
+
     def field_tend(self, target):
         display_header(self.name + "'s Turn")
         if self.stamina >= 3:
@@ -1323,6 +1333,8 @@ class Battle:
         self.total_drops = {}  # To store total drops from this battle
         self.total_exp = 0  # To store total experience gained in this battle
         self.items_used = {}
+        self.taunted_by = None  # Tracks which player has taunted
+        self.taunt_turns_remaining = 0
         self.temp_boosts = {
             player.name: {
                 'damage': 0,
@@ -1477,7 +1489,12 @@ class Battle:
                     "+5HP": 0.2,
                     "+2Protection": 0.18,
                     "+2Luck": 0.15,
-                    "+2Inventory": 0.1
+                    "+2Inventory": 0.1,
+                    "+1DMG": 0.2,
+                    "+1HP": 0.2,
+                    "+1Protection": 0.18,
+                    "+1Luck": 0.15,
+                    "+2Inventory": 0.01
                 },
                 "exp_range": (180, 250),
                 "is_predator": True,
@@ -1523,7 +1540,12 @@ class Battle:
                     "+2HP": 0.12,
                     "+1Protection": 0.1,
                     "+1Luck": 0.1,
-                    "+1Inventory": 0.1
+                    "+1Inventory": 0.1,
+                    "+1DMG": 0.2,
+                    "+1HP": 0.2,
+                    "+1Protection": 0.18,
+                    "+1Luck": 0.15,
+                    "+2Inventory": 0.01
                 },
                 "exp_range": (180, 250),
                 "is_predator": True,
@@ -1544,7 +1566,12 @@ class Battle:
                     "+6HP": 0.25,
                     "+3Protection": 0.2,
                     "+2Luck": 0.15,
-                    "+2Inventory": 0.12
+                    "+2Inventory": 0.12,
+                    "+1DMG": 0.2,
+                    "+1HP": 0.2,
+                    "+1Protection": 0.18,
+                    "+1Luck": 0.15,
+                    "+2Inventory": 0.01
                 },
                 "exp_range": (180, 250),
                 "is_predator": True,
@@ -1565,7 +1592,12 @@ class Battle:
                     "+4HP": 0.15,
                     "+2Protection": 0.12,
                     "+1Luck": 0.12,
-                    "+1Inventory": 0.1
+                    "+1Inventory": 0.1,
+                    "+1DMG": 0.2,
+                    "+1HP": 0.2,
+                    "+1Protection": 0.18,
+                    "+1Luck": 0.15,
+                    "+2Inventory": 0.01
                 },
                 "exp_range": (180, 250),
                 "is_predator": True,
@@ -3719,7 +3751,11 @@ class Battle:
             if active_creature.health > 0:
                 alive_players = [p for p in self.players if p.health > 0]
                 if alive_players:
-                    target_player = random.choice(alive_players)
+                    if self.taunted_by and self.taunt_turns_remaining > 0 and self.taunted_by.health > 0:
+                        target_player = self.taunted_by
+                    else:
+                        target_player = random.choice(alive_players)
+
                     display_header(active_creature.name + "'s Turn")
                     active_creature.attack(target_player, attacker_name=active_creature.name)
 
@@ -3727,6 +3763,11 @@ class Battle:
                 battle_ended = True
             if all(player.health <= 0 for player in self.players):
                 battle_ended = True
+            if self.taunt_turns_remaining > 0:
+                self.taunt_turns_remaining -= 1
+                if self.taunt_turns_remaining == 0:
+                    self.taunted_by = None
+                    log_action("The taunt effect has worn off.")
 
         if battle_ended:
             self.end_battle()
@@ -3825,6 +3866,9 @@ class Battle:
                 'dc': 'defensive_crouch',
                 'wh': 'war_howl'
             }[action])()
+            return True
+        elif action == 't':
+            player.taunt(self)  # ← pass battle instance
             return True
 
         elif action == 'sf':
