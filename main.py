@@ -2283,7 +2283,7 @@ class Battle:
             results = lottery.draw_lottery(num_draws)
 
             print("\n" * 21)
-            print("🎉 === LOTTERY RESULTS ===")
+            print("# 🎉 === LOTTERY RESULTS ===")
             for i, result in enumerate(results, 1):
                 print(f"Item Won: {result['item']}")
                 print("")
@@ -3630,38 +3630,30 @@ class Battle:
 
             target_creature.health = 0
             drops, exp_gained = target_creature.generate_drops()
-            for drop in drops:
-                self.total_drops[drop] = self.total_drops.get(drop, 0) + 1
+            for item, quantity in drops.items():
+                self.total_drops[item] = self.total_drops.get(item, 0) + quantity
 
             self.total_exp += exp_gained
 
             if target_creature in self.creatures:
+                idx = self.creatures.index(target_creature)
                 self.creatures.remove(target_creature)
-
-            if self.current_creature_index >= len(self.creatures):
-                self.current_creature_index = 0
-
-            return True  # Creature was defeated
-        return False  # Still alive
+                # Fix the index if we were pointing to this creature or anything after
+                if self.current_creature_index > idx:
+                    self.current_creature_index -= 1
+                elif self.current_creature_index == idx:
+                    # Don't increment index in main loop; we already moved
+                    pass
+            return True
+        return False
     def distribute_drops_to_players(self):
         print("\n--- 📦 Distributing Drops To Players 📦 ---")
-
         for player in self.players:
             print(f"\n🎒 {player.name}'s Loot:")
-
-            # Categorize drops by rarity
-            categorized = {"common": [], "uncommon": [], "rare": [], "unknown": []}
-            for drop in self.total_drops:
-                rarity = self.get_item_rarity(drop)
-                categorized[rarity].append(drop)
-
-            # Distribute drops by rarity and just PRINT
-            for rarity in ["common", "uncommon", "rare", "unknown"]:
-                if not categorized[rarity]:
-                    continue
-                for drop in categorized[rarity]:
-                    qty = random.randint(1, 3)
-                    print(f"    → {qty}x {drop.title()}")
+            for item, total_qty in self.total_drops.items():
+                give_qty = random.randint(0, min(3, total_qty))  # Up to 3 max, or 0
+                if give_qty > 0:
+                    print(f"    → {give_qty}x {item}")
 
 
 
@@ -3769,6 +3761,13 @@ class Battle:
                     self.taunted_by = None
                     log_action("The taunt effect has worn off.")
 
+        # Only move to next creature if current one survived
+        if self.current_creature_index < len(self.creatures):
+            active_creature = self.creatures[self.current_creature_index]
+            if active_creature.health > 0 and not active_creature.escaped:
+                self.current_creature_index += 1
+
+
         if battle_ended:
             self.end_battle()
 
@@ -3815,22 +3814,19 @@ class Battle:
             print(f"{active_creature.name} has {active_creature.health}/{active_creature.max_health} HP remaining!\n")
     
             if active_creature.health <= 0:
-                print("─" * 50)
-                print(f"☠️ {active_creature.name} is Defeated!".center(50))
-                print("─" * 50)
                 active_creature.health = 0
                 drops, exp_gained = active_creature.generate_drops()
                 for item, quantity in drops.items():
                     self.total_drops[item] = self.total_drops.get(item, 0) + quantity
                 self.total_exp += exp_gained
-    
-                # ✅ ✅ ✅ FIX INSERTED HERE
+
+                # ✅ FIX INSERTED
                 if active_creature in self.creatures:
                     idx = self.creatures.index(active_creature)
-                    self.creatures.remove(active_creature)
-                    if self.current_creature_index >= idx:
-                        self.current_creature_index -= 1
-                    return True
+                    if active_creature.health <= 0:
+                        self.handle_creature_defeat(active_creature)
+                        return True
+
             return True
 
         elif action in ('gw', 'ft', 'fl', 'qn'):
