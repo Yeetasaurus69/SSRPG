@@ -15,7 +15,7 @@ def input(prompt=""):
             print("[!] Input failed or was interrupted. Please try again.")
 
             
-VERSION = "9"  # ← change this manually when you update!
+VERSION = "8"  # ← change this manually when you update!
 print(f"\n🔄 SSRPG Game Version: {VERSION}\n")
 
 
@@ -2743,28 +2743,29 @@ class Battle:
 
                 print("💸 While traveling, your group uncovers a cleverly hidden stash left by another clan! Everyone receives a surprise prize. 💸")
             elif event_type == "healer":
+                print("\n🌿 You meet a traveling medicine cat who treats your wounds and replenishes your energy!")
+                
                 for player in self.players:
                     player.health = player.max_health
                     player.stamina = player.max_stamina
-                    print(f"{player.name}'s stats are now: HP={player.health}/{player.max_health}, Stamina={player.stamina}/{player.max_stamina}")
-                print("\nYou meet a traveling medicine cat who treats your wounds and replenishes your energy.!")
-                print(f"\n=== PLAYER LINE ===")
-                print(player.to_line())
-                print(f"=== PLAYER LINE ===\n")
 
+                    # Show updated line and stats
+                    print(f"\n=== PLAYER LINE ===")
+                    print(player.to_line())
+                    print("=== PLAYER LINE ===")
 
-                print("\n=== PLAYER STATS ===")
-                print(f"Name:         {player.name}")
-                print(f"Max Health:   {player.max_health}")
-                print(f"Health:       {player.health}")
-                print(f"Max Stamina:  {player.max_stamina}")
-                print(f"Stamina:      {player.stamina}")
-                print(f"Luck:         {player.luck}")
-                print(f"Protection:   {player.protection}")
-                print(f"Light:        {player.light}")
-                print(f"Damage:       {player.damage}")
-                print(f"Status:       {player.status_effects}")
-                print("====================\n")
+                    print("\n=== PLAYER STATS ===")
+                    print(f"Name:         {player.name}")
+                    print(f"Max Health:   {player.max_health}")
+                    print(f"Health:       {player.health}")
+                    print(f"Max Stamina:  {player.max_stamina}")
+                    print(f"Stamina:      {player.stamina}")
+                    print(f"Luck:         {player.luck}")
+                    print(f"Protection:   {player.protection}")
+                    print(f"Light:        {player.light}")
+                    print(f"Damage:       {player.damage}")
+                    print(f"Status:       {player.status_effects}")
+                    print("====================\n")
         else:
             self.creatures.clear()
             self.current_creature_index = 0  # Reset the creature index
