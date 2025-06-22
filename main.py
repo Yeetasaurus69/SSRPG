@@ -72,7 +72,7 @@ ITEM_VALUES = {
 
     # === GATHERABLES (~5–15 max) ===
     "Comfrey Root": 6, "Goldenrod": 6, "Horsetail": 8, "BurdockRoot": 6,
-    "DockLeaves": 4, "Juniper Berries": 4, "Marigold": 4, "BlackberryLeaves": 3,
+    "DockLeaves": 4, "JuniperBerries": 4, "Marigold": 4, "BlackberryLeaves": 3,
     "Catmint": 8, "Grass": 2, "ThistlePatches": 3, "Seaweed": 3, "PoppySeeds": 8,
     "Stick": 2, "Sap": 6, "Moss": 3, "Pinecone": 4, "Rock": 5, "Antler": 12,
     "Root": 5, "Stone": 6,
