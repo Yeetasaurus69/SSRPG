@@ -15,7 +15,7 @@ def input(prompt=""):
             print("[!] Input failed or was interrupted. Please try again.")
 
             
-VERSION = "10"  # ← change this manually when you update!
+VERSION = "11"  # ← change this manually when you update!
 print(f"\n🔄 SSRPG Game Version: {VERSION}\n")
 
 
@@ -1045,9 +1045,9 @@ class PlayerCharacter:
 
     def frantic_licks(self, target):
         display_header(self.name + "'s Turn")
-        if self.stamina >= 20:
+        if self.stamina >= 30:
             heal_amount = 50
-            self.stamina -= 20
+            self.stamina -= 30
             self.clamp_stats()
             target.health = min(target.max_health, target.health + heal_amount)
             log_action(f"{self.name} frantically licks {target.name}'s wounds, restoring {heal_amount} HP!")
@@ -1058,7 +1058,7 @@ class PlayerCharacter:
     def quick_nudge(self, target):
         display_header(self.name + "'s Turn")
         if self.stamina >= 7:
-            heal_amount = 25
+            heal_amount = 15
             self.stamina -= 7
             self.clamp_stats()
             target.health = min(target.max_health, target.health + heal_amount)
@@ -1080,8 +1080,8 @@ class PlayerCharacter:
 
     def defensive_crouch(self):
         display_header(self.name + "'s Turn")
-        if self.stamina >= 5:
-            self.stamina -= 5
+        if self.stamina >= 10:
+            self.stamina -= 10
             self.clamp_stats()
             additional_protection = 10
             self.temp_protection += additional_protection
@@ -1091,8 +1091,8 @@ class PlayerCharacter:
 
     def heavy_pounce(self, target):
         display_header(self.name + "'s Turn")
-        if self.stamina >= 7:
-            self.stamina -= 7
+        if self.stamina >= 10:
+            self.stamina -= 10
             extra_damage = 10
             total_damage = self.damage + extra_damage
             target.health -= total_damage
@@ -1103,8 +1103,8 @@ class PlayerCharacter:
 
     def precise_lunge(self, target):
         display_header(self.name + "'s Turn")
-        if self.stamina >= 7:
-            self.stamina -= 7
+        if self.stamina >= 13:
+            self.stamina -= 13
             self.clamp_stats()
             extra_damage = 15
             total_damage = self.damage + extra_damage
@@ -1128,8 +1128,8 @@ class PlayerCharacter:
 
     def maul(self, target):
         display_header(self.name + "'s Turn")
-        if self.stamina >= 20:
-            self.stamina -= 20
+        if self.stamina >= 30:
+            self.stamina -= 30
             self.clamp_stats()
             damage_per_hit = self.damage
             total_damage = damage_per_hit * 3
@@ -1165,8 +1165,8 @@ class PlayerCharacter:
 
     def ram_charge(self, target):
         display_header(self.name + "'s Turn")
-        if self.stamina >= 10:
-            self.stamina -= 10
+        if self.stamina >= 20:
+            self.stamina -= 20
             additional_protection = 5
             self.temp_protection += additional_protection
             extra_damage = 5
