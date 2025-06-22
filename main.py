@@ -15,7 +15,7 @@ def input(prompt=""):
             print("[!] Input failed or was interrupted. Please try again.")
 
             
-VERSION = "12"  # ← change this manually when you update!
+VERSION = "13"  # ← change this manually when you update!
 print(f"\n🔄 SSRPG Game Version: {VERSION}\n")
 
 
@@ -223,6 +223,11 @@ class Creature:
         self.status_effects = status_effects  # Define possible status effects for this creature
         self.special_ability = special_ability
         self.escaped = False
+        self.rage_triggered = False
+        self.rage_type = None
+        self.rage_turns_remaining = 0
+        self.original_damage = self.damage
+
 
     def __repr__(self):
         return f"{self.name}: - Damage: {self.damage}, Health: {self.health}"
@@ -1213,41 +1218,40 @@ class PlayerCharacter:
         item.use(self)
 
     def apply_status_effects(self):
-        """Apply ongoing effects like bleeding, poison, or shadow shroud, if active."""
-        damage_taken = 0
+        """Apply ongoing effects like RED_BLIGHT, bleeding, poison, or burn if active."""
+        total_damage = 0
 
-        if 'shadow shroud' in self.status_effects:
-            damage_taken += SHADOW_SHROUD_DAMAGE
-            print(f"{self.name} is under Shadow Shroud and loses {SHADOW_SHROUD_DAMAGE} HP!")
+        if 'RED_BLIGHT' in self.status_effects:
+            print(f"{self.name} is wracked by RED_BLIGHT and loses {RED_BLIGHT_DAMAGE} HP!")
+            self.health -= RED_BLIGHT_DAMAGE
+            total_damage += RED_BLIGHT_DAMAGE
 
         if 'bleeding' in self.status_effects:
-            damage_taken += BLEED_DAMAGE
             print(f"{self.name} is bleeding and loses {BLEED_DAMAGE} HP!")
+            self.health -= BLEED_DAMAGE
+            total_damage += BLEED_DAMAGE
 
         if 'burn' in self.status_effects:
-            damage_taken += BURN_DAMAGE
             print(f"{self.name} is burning and loses {BURN_DAMAGE} HP!")
+            self.health -= BURN_DAMAGE
+            total_damage += BURN_DAMAGE
 
         if 'poison' in self.status_effects:
-            damage_taken += POISON_DAMAGE
             print(f"{self.name} is poisoned and loses {POISON_DAMAGE} HP!")
+            self.health -= POISON_DAMAGE
+            total_damage += POISON_DAMAGE
 
-        # Apply the total damage taken
-        self.health -= damage_taken
         self.clamp_stats()
 
         if self.health <= 0:
             print(f"💀 {self.name} has succumbed to their status effects and collapses!")
-        
 
-        # Check for dazed status and handle it
         if 'dazed' in self.status_effects:
             print(f"{self.name} is dazed and cannot act this turn.")
-            # Remove dazed status after it has been processed
             self.status_effects.remove('dazed')
-            return True  # Indicate that the player cannot act
+            return True  # Can't act
 
-        return False  # Indicate that the player can act
+        return False  # Can act
 
 
     def clear_temp_stats(self):
@@ -1481,7 +1485,7 @@ class Battle:
                 "name": "Hollow Maw",
                 "abbreviation": "HM",
                 "damage": 4,
-                "health": 550,
+                "health": 850,
                 "drops": {
                     "rotten meat": 0.9,
                     "fur": 0.6,
@@ -1507,7 +1511,7 @@ class Battle:
                 "name": "Raivyr",
                 "abbreviation": "R",
                 "damage": 5,
-                "health": 650,
+                "health": 1250,
                 "drops": {
                     "feather": 0.9,
                     "fur": 0.9,
@@ -1532,7 +1536,7 @@ class Battle:
                 "name": "Carrion Crown",
                 "abbreviation": "CC",
                 "damage": 5,
-                "health": 500,
+                "health": 755,
                 "drops": {
                     "feather": 0.9,
                     "bone": 0.6,
@@ -1558,7 +1562,7 @@ class Battle:
                 "name": "Rot-Heart",
                 "abbreviation": "RH",
                 "damage": 3,
-                "health": 600,
+                "health": 950,
                 "drops": {
                     "bone": 0.9,
                     "hide": 0.6,
@@ -1584,7 +1588,7 @@ class Battle:
                 "name": "Duskcoil",
                 "abbreviation": "DS",
                 "damage": 5,
-                "health": 520,
+                "health": 1200,
                 "drops": {
                     "scale": 0.9,
                     "venom gland": 0.6,
@@ -1661,6 +1665,39 @@ class Battle:
                 if drop in drops:
                     return rarity
         return "unknown"
+    def determine_rage_state(self, creature):
+        # If rage already triggered, do nothing
+        if creature.rage_triggered:
+            return None
+
+        if creature.health <= creature.max_health * 0.5:
+            creature.rage_triggered = True
+            creature.rage_turns = 15  # Lasts 15 turns
+
+            # Choose a rage type
+            rage_options = ["feral", "corrupted bloodlust", "feast"]
+            creature.rage_type = random.choice(rage_options)
+            return creature.rage_type
+
+        return None
+
+    def apply_rage_effects(creature, player_hit=None):
+        """Ongoing rage effects."""
+        if not creature.rage_mode:
+            return
+
+        if creature.rage_type == "bloodlust":
+            effects = ["bleeding", "burn", "RED_BLIGHT"]
+            effect = random.choice(effects)
+            if player_hit and effect not in player_hit.status_effects:
+                player_hit.status_effects.append(effect)
+                print(f"{player_hit.name} is cursed with {effect.upper()} from BLOODLUST!")
+
+        elif creature.rage_type == "feast":
+            if player_hit and player_hit.health <= 0:
+                heal = int(creature.max_health * 0.1)
+                creature.health = min(creature.max_health, creature.health + heal)
+                print(f"{creature.name} FEASTS on the fallen, healing {heal} HP!")
 
 
 
@@ -3755,7 +3792,46 @@ class Battle:
 
 
                     display_header(active_creature.name + "'s Turn")
-                    active_creature.attack(target_player, attacker_name=active_creature.name)
+                    rage_triggered = self.determine_rage_state(active_creature)
+                    if rage_triggered:
+                        print(f"\n💢 {active_creature.name.upper()} ENTERS {rage_triggered.upper()} MODE! 💢")
+
+                        if rage_triggered == "feral":
+                            active_creature.damage = int(active_creature.damage * 2.5)
+                            print(f"{active_creature.name} now deals MASSIVE damage!")
+
+                        elif rage_triggered == "corrupted bloodlust":
+                            print(f"{active_creature.name}'s body warps with corruption. RED_BLIGHT spreads...")
+
+                        elif rage_triggered == "feast":
+                            active_creature.damage += 2
+                            print(f"{active_creature.name} enters a feast frenzy—driven by the scent of blood!")
+                        if active_creature.rage_triggered:
+                            active_creature.rage_turns -= 1
+
+                            if active_creature.rage_type == "feast":
+                                heal_amount = int(active_creature.max_health * 0.10)
+                                active_creature.health = min(active_creature.health + heal_amount, active_creature.max_health)
+                                log_action(f"{active_creature.name} tears into its own flesh—regaining {heal_amount} HP.")
+
+                            elif active_creature.rage_type == "corrupted bloodlust":
+                                if target_player and "RED_BLIGHT" not in target_player.status_effects:
+                                    target_player.add_status_effect("RED_BLIGHT")
+                                    log_action(f"{active_creature.name}'s corruption infects {target_player.name} with RED_BLIGHT!")
+                                
+                                # 💥 Add bonus damage temporarily
+                                bonus_damage = 10
+                                active_creature.damage += bonus_damage
+                                log_action(f"{active_creature.name} lashes out in bloodlust!")
+
+                            # End of rage
+                            if active_creature.rage_turns <= 0:
+                                log_action(f"{active_creature.name}'s rage fades...")
+                                active_creature.rage_triggered = False
+                                active_creature.rage_type = None
+                                active_creature.damage = active_creature.original_damage
+                    active_creature.attack(target_player)
+ 
 
             if all(creature.health <= 0 for creature in self.creatures):
                 battle_ended = True
