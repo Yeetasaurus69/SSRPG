@@ -15,7 +15,7 @@ def input(prompt=""):
             print("[!] Input failed or was interrupted. Please try again.")
 
             
-VERSION = "8"  # ← change this manually when you update!
+VERSION = "9"  # ← change this manually when you update!
 print(f"\n🔄 SSRPG Game Version: {VERSION}\n")
 
 
@@ -68,27 +68,27 @@ PREY_NAMES = {
 ITEM_VALUES = {
 # === DROPS (~5–20 max) ===
     "Fur": 1, "Feather": 1, "Scale": 3, "Shell": 3, "Bone": 4,
-    "Claw": 3, "Tooth": 3, "Venom Gland": 9, "Rotten Meat": 9, "Hide": 3,
+    "Claw": 3, "Tooth": 3, "VenomGland": 9, "RottenMeat": 9, "Hide": 3,
 
     # === GATHERABLES (~5–15 max) ===
-    "Comfrey Root": 6, "Goldenrod": 6, "Horsetail": 8, "Burdock Root": 6,
-    "Dock Leaves": 4, "Juniper Berries": 4, "Marigold": 4, "Blackberry Leaves": 3,
-    "Catmint": 8, "Grass": 2, "Thistle Patches": 3, "Seaweed": 3, "Poppy Seeds": 8,
+    "Comfrey Root": 6, "Goldenrod": 6, "Horsetail": 8, "BurdockRoot": 6,
+    "DockLeaves": 4, "Juniper Berries": 4, "Marigold": 4, "BlackberryLeaves": 3,
+    "Catmint": 8, "Grass": 2, "ThistlePatches": 3, "Seaweed": 3, "PoppySeeds": 8,
     "Stick": 2, "Sap": 6, "Moss": 3, "Pinecone": 4, "Rock": 5, "Antler": 12,
     "Root": 5, "Stone": 6,
 
     # === MEAT ===
-    "Small Meat": 6, "Medium Meat": 12, "Large Meat": 20,
+    "SmallMeat": 6, "MediumMeat": 12, "LargeMeat": 20,
 
     # === MEDICINE (100–120) ===
-    "Basic Healing Poultice": 100, "Wound Salve": 110, "Poison Cleanser": 115,
-    "Stamina Tonic": 105, "Strong Healing Mixture": 120,
+    "BasicHealingPoultice": 100, "WoundSalve": 110, "PoisonCleanser": 115,
+    "StaminaTonic": 105, "StrongHealingMixture": 120,
 
     # === ARMORS / CRAFTED GEAR (150–200) ===
-    "Fur Hood": 150, "Fur Vest": 160, "Fur Legwraps": 150,
-    "Hide Hood": 170, "Hide Vest": 180, "Hide Legwraps": 170,
-    "Bone Hood": 190, "Bone Vest": 200, "Bone Legwraps": 190,
-    "Spiked Collar": 180, "Defense Wrap": 170,
+    "FurHood": 150, "FurVest": 160, "FurLegwraps": 150,
+    "HideHood": 170, "HideVest": 180, "HideLegwraps": 170,
+    "BoneHood": 190, "BoneVest": 200, "BoneLegwraps": 190,
+    "SpikedCollar": 180, "DefenseWrap": 170,
     "ForestLuckCharm": 150, "AntlerHood": 160,
     "StonyHideLegwraps": 175,
 
