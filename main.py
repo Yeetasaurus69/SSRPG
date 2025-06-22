@@ -15,7 +15,7 @@ def input(prompt=""):
             print("[!] Input failed or was interrupted. Please try again.")
 
             
-VERSION = "11"  # ← change this manually when you update!
+VERSION = "12"  # ← change this manually when you update!
 print(f"\n🔄 SSRPG Game Version: {VERSION}\n")
 
 
@@ -3743,10 +3743,16 @@ class Battle:
             if active_creature.health > 0:
                 alive_players = [p for p in self.players if p.health > 0]
                 if alive_players:
-                    if self.taunted_by and self.taunt_turns_remaining > 0 and self.taunted_by.health > 0:
+                    if (
+                        self.taunted_by
+                        and self.taunt_turns_remaining > 0
+                        and self.taunted_by.health > 0
+                        and self.taunted_by in self.players  # ✅ Make sure they're still in battle
+                    ):
                         target_player = self.taunted_by
                     else:
                         target_player = random.choice(alive_players)
+
 
                     display_header(active_creature.name + "'s Turn")
                     active_creature.attack(target_player, attacker_name=active_creature.name)
