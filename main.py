@@ -15,7 +15,7 @@ def input(prompt=""):
             print("[!] Input failed or was interrupted. Please try again.")
 
             
-VERSION = "13"  # ← change this manually when you update!
+VERSION = "14"  # ← change this manually when you update!
 print(f"\n🔄 SSRPG Game Version: {VERSION}\n")
 
 
@@ -589,7 +589,7 @@ class ShadowLottery:
             'Stats': [
                 '+1 Luck', '+1 Damage', '+1 Health', '+1 Protection',
                 '+1 Stamina', '+1 Inventory Slot', '+1 Dice Face',
-                'Frantic Licks Ability', 'Bristle Ability', 'Noxious Snarl Ability', 'TAUNT'
+                'Frantic Licks Ability', 'Bristle Ability', 'Noxious Snarl Ability', 'TAUNT', '5 Pawmarks', '1 Pawmarks'
             ],
             'Food': [
                 'Small Meat', 'Medium Meat', 'Large Meat'
@@ -600,7 +600,7 @@ class ShadowLottery:
         self.category_weights = {
             'Armor': 5,
             'Accessories': 3,
-            'Stats': 2,
+            'Stats': 1,
             'Materials': 10,
             'Consumables': 8,
             'Food': 12
@@ -1491,13 +1491,15 @@ class Battle:
                     "fur": 0.6,
                     "+3DMG": 0.2,
                     "+5HP": 0.2,
-                    "+2Protection": 0.18,
+                    "+2Protection": 0.01,
                     "+2Luck": 0.15,
                     "+2Inventory": 0.1,
                     "+1DMG": 0.2,
                     "+1HP": 0.2,
-                    "+1Protection": 0.18,
+                    "+1Protection": 0.03,
                     "+1Luck": 0.15,
+                    "+5 Pawmarks": 0.02,
+                    "+1 Pawmarks": 0.10,
                     "+2Inventory": 0.01
                 },
                 "exp_range": (180, 250),
@@ -1523,6 +1525,8 @@ class Battle:
                     "+1HP": 0.2,
                     "+1Protection": 0.18,
                     "+1Luck": 0.15,
+                    "+5 Pawmarks": 0.02,
+                    "+1 Pawmarks": 0.10,
                     "+2Inventory": 0.01
                 },
                 "exp_range": (180, 250),
@@ -1549,6 +1553,8 @@ class Battle:
                     "+1HP": 0.2,
                     "+1Protection": 0.18,
                     "+1Luck": 0.15,
+                    "+5 Pawmarks": 0.02,
+                    "+1 Pawmarks": 0.10,
                     "+2Inventory": 0.01
                 },
                 "exp_range": (180, 250),
@@ -1573,6 +1579,8 @@ class Battle:
                     "+2Inventory": 0.12,
                     "+1DMG": 0.2,
                     "+1HP": 0.2,
+                    "+5 Pawmarks": 0.02,
+                    "+1 Pawmarks": 0.10,
                     "+1Protection": 0.18,
                     "+1Luck": 0.15,
                     "+2Inventory": 0.01
@@ -1599,6 +1607,8 @@ class Battle:
                     "+1Inventory": 0.1,
                     "+1DMG": 0.2,
                     "+1HP": 0.2,
+                    "+5 Pawmarks": 0.02,
+                    "+1 Pawmarks": 0.10,
                     "+1Protection": 0.18,
                     "+1Luck": 0.15,
                     "+2Inventory": 0.01
@@ -2254,10 +2264,10 @@ class Battle:
 
         elif roll <= 6:
             print("\n>> Signs of past trouble, but no danger now.")
-            print(">> The scents are old. Nothing is here anymore, but your team feels more cautious.")
+            print(">> The scents are old. Nothing is here anymore, but your team feels more cautious. +10 Stamina")
 
             for p in investigators:
-                p.stamina += 1  # +1 stamina back as they didn't waste energy
+                p.stamina += 10  # +1 stamina back as they didn't waste energy
             return
 
 
