@@ -209,7 +209,7 @@ class BountySystem:
 
 # Define the creature class
 class Creature:
-    def __init__(self, name, abbreviation, biome, damage, health, drops, exp_range, is_predator, status_effects=[], special_ability=None, luck=3):
+    def __init__(self, name, abbreviation, biome, damage, health, drops, exp_range, is_predator, status_effects=[], special_ability=None, luck=3, is_raid_boss=False):
         self.name = name
         self.abbreviation = abbreviation
         self.biome = biome
@@ -227,6 +227,7 @@ class Creature:
         self.rage_type = None
         self.rage_turns_remaining = 0
         self.original_damage = self.damage
+        self.is_raid_boss = is_raid_boss
 
 
     def __repr__(self):
@@ -1676,15 +1677,17 @@ class Battle:
                     return rarity
         return "unknown"
     def determine_rage_state(self, creature):
-        # If rage already triggered, do nothing
+        # Only raid bosses can enter rage
+        if not creature.is_raid_boss:
+            return None
+
         if creature.rage_triggered:
             return None
 
         if creature.health <= creature.max_health * 0.5:
             creature.rage_triggered = True
-            creature.rage_turns = 15  # Lasts 15 turns
+            creature.rage_turns = 15
 
-            # Choose a rage type
             rage_options = ["feral", "corrupted bloodlust", "feast"]
             creature.rage_type = random.choice(rage_options)
             return creature.rage_type
@@ -1725,7 +1728,8 @@ class Battle:
             boss_data["is_predator"],
             boss_data["status_effects"],
             boss_data["special_ability"],
-            boss_data["luck"]
+            boss_data["luck"],
+            is_raid_boss=True 
         )
         raid_boss.reset_health()
 
