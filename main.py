@@ -2761,9 +2761,33 @@ class Battle:
 
         encounter_chance = random.randint(1, 100)
 
-        if encounter_chance <= 20:
+        if encounter_chance <= 25:
 
-            print("\nA sudden storm hits! Everyone loses 10 stamina.")
+            # PREVENT STORM if it would drop a player below 0
+            for player in self.players:
+                if player.stamina - 10 < 0:
+                    print(f"\n🌩️ A storm brews... but {player.name} is too exhausted to continue.")
+                    print(f"{player.name} collapses from exhaustion! The group must stop traveling!")
+                    print("")
+                    print("\n=== PLAYER STATS ===")
+                    print(f"Name:         {player.name}")
+                    print(f"Max Health:   {player.max_health}")
+                    print(f"Health:       {player.health}")
+                    print(f"Max Stamina:  {player.max_stamina}")
+                    print(f"Stamina:      {player.stamina}")
+                    print(f"Luck:         {player.luck}")
+                    print(f"Protection:   {player.protection}")
+                    print(f"Light:        {player.light}")
+                    print(f"Damage:       {player.damage}")
+                    print(f"Status:       {player.status_effects}")
+                    print("====================\n")
+                    
+                    print(f"\n=== PLAYER LINE ===")
+                    print(player.to_line())
+                    print(f"=== PLAYER LINE ===\n")
+                    return
+
+            print("\nThe storm hits! Everyone loses 10 stamina.")
             for player in self.players:
                 player.stamina -= 10
                 player.clamp_stats()
@@ -2783,25 +2807,6 @@ class Battle:
                 print(f"\n=== PLAYER LINE ===")
                 print(player.to_line())
                 print(f"=== PLAYER LINE ===\n")
-
-                if player.stamina < 0:
-
-                    print("\n=== PLAYER STATS ===")
-                    print(f"Name:         {player.name}")
-                    print(f"Max Health:   {player.max_health}")
-                    print(f"Health:       {player.health}")
-                    print(f"Max Stamina:  {player.max_stamina}")
-                    print(f"Stamina:      {player.stamina}")
-                    print(f"Luck:         {player.luck}")
-                    print(f"Protection:   {player.protection}")
-                    print(f"Light:        {player.light}")
-                    print(f"Damage:       {player.damage}")
-                    print(f"Status:       {player.status_effects}")
-                    print("====================\n")
-                    
-                    print(f"{player.name} collapses from exhaustion! The group must stop traveling!")
-                    print(f"{player.name}'s Stamina now: {player.stamina}/{player.max_stamina}")
-                    return
 
         elif encounter_chance <= 50:
             event_type = random.choice(["cache", "healer"])
