@@ -15,7 +15,7 @@ def input(prompt=""):
             print("[!] Input failed or was interrupted. Please try again.")
 
             
-VERSION = "14"  # ← change this manually when you update!
+VERSION = "15"  # ← change this manually when you update!
 print(f"\n🔄 SSRPG Game Version: {VERSION}\n")
 
 
@@ -1459,11 +1459,11 @@ class Battle:
         }
 
         self.biomes = {
-            "Howler's Rise": self.creature_templates[:4],  # Howler's Rise creatures
-            "Whispering Pines": self.creature_templates[4:8],  # Whispering Pines  creatures
-            "Cinderglen": self.creature_templates[8:12],  # Cinderglen  creatures
-            "Deadlands": self.creature_templates[12:16],  # Deadlands  creatures
-            "Blacktide Beach": self.creature_templates[16:20]  # Blacktide Beach  creatures
+            "Cinderglen": self.creature_templates[0:8],  # 6 prey + 2 predators
+            "Whispering Pines": self.creature_templates[8:15],  # 5 prey + 3 predators
+            "Howler's Rise": self.creature_templates[15:21],  # 3 prey + 3 predators
+            "Deadlands": self.creature_templates[21:24],  # 3 predators
+            "Blacktide Beach": self.creature_templates[24:]  # 3 prey + 3 predators
         }
 
         # Define stamina costs for traveling between biomes
@@ -3093,6 +3093,17 @@ class Battle:
         if not self.players:
             return
 
+        # Biome selection
+        print("\n=== CHOOSE A BIOME TO PATROL ===")
+        for i, biome in enumerate(self.biomes.keys(), 1):
+            print(f"{i}. {biome}")
+        try:
+            biome_choice = int(input("Select a biome (number): ")) - 1
+            selected_biome = list(self.biomes.keys())[biome_choice]
+        except (ValueError, IndexError):
+            print("Invalid selection.")
+            return
+
         # Team selection
         patrol_team = []
         print("\n=== PATROL TEAM SELECTION ===")
@@ -3135,182 +3146,180 @@ class Battle:
 
         leader = patrol_team[0]
         print(f"\n>> {leader.name} leads the patrol.")
-        print(">> The patrol heads out...")
+        print(">> The patrol heads into", selected_biome)
 
         # Encounter Roll
         roll = random.randint(1, 10)
-
-        # Slightly safer with more players
         if len(patrol_team) >= 3 and roll == 9:
             roll = 8  # Avoid ambush
 
-        # ==== PEACEFUL ====
-        if roll <= 3:
-            print("\n>> The patrol is peaceful. You find herbs by a quiet brook.")
-
+        if roll <= 3:  # Peaceful herb find
+            plant_pool = [plant.name for plant in self.plants if plant.biome == selected_biome]
+            plant = random.choice(plant_pool)
+            print(f"\n>> The patrol is peaceful. You find some {plant}.")
             print("Do you...")
-            print("1. Gather them quickly (risk getting less)")
-            print("2. Gather carefully (takes longer, safer)")
-            print("3. Leave them alone")
+            print("1. Gather it quickly (risky)")
+            print("2. Gather carefully (safe)")
+            print("3. Leave it")
 
             choice = input("> Choose: ").strip()
-
             if choice == "1":
                 if random.random() < 0.5:
-                    print(">> Herbs gathered successfully!")
                     for p in patrol_team:
-                        print(f"{p.name} gains 2x Herbs")
+                        print(f"{p.name} gains 2x {plant}")
                 else:
-                    print(">> Herbs withered while rushed. Nothing gained.")
-
+                    print(">> It was ruined while rushing. Nothing gained.")
             elif choice == "2":
-                print(">> Carefully gathered herbs.")
                 for p in patrol_team:
-                    print(f"{p.name} gains 3x Herbs")
-
+                    print(f"{p.name} gains 3x {plant}")
             else:
-                print(">> You leave the herbs untouched.")
+                print(">> Left untouched.")
 
-        # ==== PREY ====
-        elif roll <= 6:
-            prey = random.choice(["Mouse", "Squirrel", "Rabbit", "Small Bird"])
-            print(f"\n>> You spot a {prey}.")
-
+        elif roll <= 6:  # Prey spotted
+            prey_options = [c for c in self.biomes[selected_biome] if not c.is_predator]
+            if not prey_options:
+                print(">> No prey found.")
+                return
+            prey = random.choice(prey_options)
+            print(f"\n>> You spot a {prey.name}.")
             print("How do you approach?")
             print("1. Ambush carefully (+bonus if success, harder)")
             print("2. Charge in (easy roll, lower reward)")
             print("3. Ignore")
 
             choice = input("> Choose: ").strip()
-
             if choice == "1":
                 if random.random() < 0.4:
-                    print(">> Perfect ambush! You caught the prey cleanly.")
                     for p in patrol_team:
-                        print(f"{p.name} gains 3x Food")
+                        for drop, chance in prey.drops.items():
+                            if random.random() < chance:
+                                print(f"{p.name} gains 1x {drop}")
                 else:
-                    print(">> The prey escaped...")
-
+                    print(">> The prey escaped.")
             elif choice == "2":
                 if random.random() < 0.8:
-                    print(">> You caught it, but it's small.")
                     for p in patrol_team:
-                        print(f"{p.name} gains 1x Food")
+                        for drop, chance in prey.drops.items():
+                            if random.random() < chance * 0.5:
+                                print(f"{p.name} gains 1x {drop}")
                 else:
                     print(">> Prey escaped.")
-
             else:
-                print(">> You ignore it and move on.")
+                print(">> You ignore the prey and move on.")
 
-        # ==== ENEMY SIGHTING ====
-        elif roll <= 8:
+        elif roll <= 8:  # Predator encounter
             print("\n>> Hostile creature spotted ahead!")
-
             print("What do you do?")
             print("1. Attack first")
             print("2. Try to sneak by (Luck roll)")
-            print("3. Retreat (End patrol safely)")
+            print("3. Retreat")
 
             choice = input("> Choose: ").strip()
-
-            if choice == "2":
-                # Sneak roll
-                success = random.random() < 0.4
-                if success:
-                    print(">> You sneak by successfully. Patrol ends peacefully.")
-                    return
-                else:
-                    print(">> Failed! They spotted you.")
-
-            if choice == "3":
+            if choice == "2" and random.random() < 0.4:
+                print(">> You sneak by successfully. Patrol ends peacefully.")
+                return
+            elif choice == "3":
                 print(">> You retreat safely.")
                 return
 
-            # COMBAT START
-            biome = random.choice(list(self.biomes.keys()))
-            enemy = random.choice(self.biomes[biome])
+            possible_enemies = [c for c in self.biomes[selected_biome] if c.is_predator]
+            if not possible_enemies:
+                print(">> No predators found.")
+                return
+            template = random.choice(possible_enemies)
+            enemy = Creature(
+                template.name,
+                template.abbreviation,
+                template.biome,
+                template.damage,
+                template.health,
+                template.drops,
+                template.exp_range,
+                template.is_predator,
+                template.status_effects.copy(),
+                template.special_ability,
+                template.luck
+            )
+            enemy.reset_health()
+            self.creatures = [enemy]
 
-            self.creatures = [Creature(
-                enemy.name, enemy.abbreviation, enemy.biome, enemy.damage, enemy.health,
-                enemy.drops, enemy.exp_range, enemy.is_predator, enemy.status_effects.copy(),
-                enemy.special_ability, enemy.luck
-            )]
-
-            self.creatures[0].reset_health()
             print(f"\n>> {enemy.name} appears! ({enemy.health} HP)")
             self.start_battle()
 
-        # ==== AMBUSH ====
-        elif roll == 9:
+        elif roll == 9:  # Ambush
             print("\n>> AMBUSH! Enemies surround you.")
-
-            biome = random.choice(list(self.biomes.keys()))
-            possible_enemies = [c for c in self.creature_templates if c.biome == biome and c.is_predator]
-
-            # If no predators available, fallback to prey
+            possible_enemies = [c for c in self.biomes[selected_biome] if c.is_predator]
             if not possible_enemies:
-                possible_enemies = [c for c in self.creature_templates if c.biome == biome]
+                possible_enemies = self.biomes[selected_biome]
             num_creatures = random.randint(2, 3)
-
             self.creatures = []
             for _ in range(num_creatures):
-                enemy = random.choice(possible_enemies)
-                new_creature = Creature(
-                    enemy.name, enemy.abbreviation, enemy.biome, enemy.damage, enemy.health,
-                    enemy.drops, enemy.exp_range, enemy.is_predator, enemy.status_effects.copy(),
-                    enemy.special_ability, enemy.luck
+                template = random.choice(possible_enemies)
+                enemy = Creature(
+                    template.name,
+                    template.abbreviation,
+                    template.biome,
+                    template.damage,
+                    template.health,
+                    template.drops,
+                    template.exp_range,
+                    template.is_predator,
+                    template.status_effects.copy(),
+                    template.special_ability,
+                    template.luck
                 )
-                new_creature.reset_health()
-                self.creatures.append(new_creature)
+                enemy.reset_health()
 
-            print("\n>> Enemies charge!")
+                self.creatures.append(enemy)
             for c in self.creatures:
                 print(f"- {c.name} ({c.health} HP)")
-
             self.start_battle()
 
-        # ==== SPECIAL FIND ====
-        else:
+        else:  # Special cache
             print("\n>> You find a hidden cache among rocks!")
-
             print("Do you...")
             print("1. Grab it fast (risk enemy)")
             print("2. Search carefully (safe)")
             print("3. Leave it")
 
             choice = input("> Choose: ").strip()
+            if choice == "1" and random.random() < 0.4:
+                print(">> As you grab it, enemies appear!")
+                possible_enemies = [c for c in self.biomes[selected_biome] if c.is_predator]
+                if not possible_enemies:
+                    possible_enemies = self.biomes[selected_biome]
+                template = random.choice(possible_enemies)
+                enemy = Creature(
+                    template.name,
+                    template.abbreviation,
+                    template.biome,
+                    template.damage,
+                    template.health,
+                    template.drops,
+                    template.exp_range,
+                    template.is_predator,
+                    template.status_effects.copy(),
+                    template.special_ability,
+                    template.luck
+                )
+                enemy.reset_health()
 
-            if choice == "1":
-                if random.random() < 0.4:
-                    print(">> As you grab it, enemies appear!")
-                    biome = random.choice(list(self.biomes.keys()))
-                    enemy = random.choice(self.biomes[biome])
-
-                    self.creatures = [Creature(
-                        enemy.name, enemy.abbreviation, enemy.biome, enemy.damage, enemy.health,
-                        enemy.drops, enemy.exp_range, enemy.is_predator, enemy.status_effects.copy(),
-                        enemy.special_ability, enemy.luck
-                    )]
-
-                    self.creatures[0].reset_health()
-                    self.start_battle()
-                else:
-                    print(">> You grab rare loot and escape!")
-                    for p in patrol_team:
-                        print(f"{p.name} gains +1 Luck item")
-
+                self.start_battle()
+            elif choice == "1":
+                print(">> You grab rare loot and escape!")
+                for p in patrol_team:
+                    print(f"{p.name} gains +1 Luck item")
             elif choice == "2":
                 print(">> Carefully gathered cache safely.")
                 for p in patrol_team:
                     print(f"{p.name} gains +1 Health item")
-
             else:
                 print(">> Left untouched.")
 
-        # Patrol end summary
         print("\n=== PATROL OVERVIEW ===")
         for p in patrol_team:
             print(f"{p.name},{p.max_health},{p.health},{p.stamina},{p.max_stamina},{p.luck},{p.protection},{p.light},{p.damage},{p.status_effects}")
+
 
     def craft_menu(self, player):
         crafting = CraftingSystem()
