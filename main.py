@@ -1938,39 +1938,39 @@ class Battle:
             print("Invalid selection.")
             return
 
-        print(f"\n ⚔️ {player1.name} and {player2.name} prepare to spar! ⚔️\n")
+        print(f"\n⚔️ {player1.name} and {player2.name} prepare to spar! ⚔️\n")
 
-        # Save original health
-        p1_original_health = player1.health
-        p2_original_health = player2.health
+        # Save original health/stamina
+        p1_health, p1_stamina = player1.health, player1.stamina
+        p2_health, p2_stamina = player2.health, player2.stamina
 
-        # Start sparring loop
         turn = 0
         while player1.health > 0 and player2.health > 0:
             attacker = player1 if turn % 2 == 0 else player2
             defender = player2 if turn % 2 == 0 else player1
 
-            damage = attacker.damage
-            defender.health -= damage
-            display_header(attacker.name + "'s Turn")
-            print(f">> {attacker.name} strikes {defender.name} for {damage} damage! ({defender.health}/{defender.max_health} HP left)")
-
-            if defender.health <= 0:
-                print(f"\n{defender.name} falls! 🏆 {attacker.name} 🏆 wins the sparring match!")
+            attacker.apply_status_effects()
+            if attacker.health <= 0:
                 break
 
-            if input("\nContinue sparring? (y/n): ").lower() != 'y':
-                print(">> The sparring match ends in a draw.")
+            print(f"\n{attacker.name}'s turn!")
+            while True:
+                action = input("Enter an action: ").strip().lower()
+                if not self.process_player_action(attacker, action, defender, ignore_protection=True):
+                    print("Invalid action. Try again.")
+                    continue
+                break
+
+            if defender.health <= 0:
+                print(f"\n🏆 {attacker.name} wins the sparring match! 🏆")
                 break
 
             turn += 1
 
-        # Restore health after spar
-        player1.health = p1_original_health
-        player2.health = p2_original_health
-
-        print(f"\n{attacker.name} GIVES UP!! {defender.name} WINS!")
-        print("=== SPARRING MATCH ENDED ===")
+        # Restore original stats
+        player1.health, player1.stamina = p1_health, p1_stamina
+        player2.health, player2.stamina = p2_health, p2_stamina
+        print("\n=== SPARRING MATCH ENDED ===")
             # 🔧 PATCHED FUNCTIONS (HUNTING DIFFICULTY TUNING) 🔧
 
             # Updated run_hunting_minigame with stamina + counterattack + better flee + player stats display
@@ -3872,7 +3872,7 @@ class Battle:
         if battle_ended:
             self.end_battle()
 
-    def process_player_action(self, player, action, active_creature):
+    def process_player_action(self, player, action, active_creature, ignore_protection=False):
         if action == 's':
             print("\n" * 21)
             print(f"\n=== {player.name}'s Current Stats ===")
@@ -3904,6 +3904,10 @@ class Battle:
                 return True
     
             damage = player.damage
+            if not ignore_protection:
+                if hasattr(active_creature, 'protection'):
+                    damage = max(damage - active_creature.protection, 0)
+
             if random.random() <= 0.20:
                 damage *= 2
                 print("\n" * 21)
@@ -3916,17 +3920,17 @@ class Battle:
     
             if active_creature.health <= 0:
                 active_creature.health = 0
-                drops, exp_gained = active_creature.generate_drops()
-                for item, quantity in drops.items():
-                    self.total_drops[item] = self.total_drops.get(item, 0) + quantity
-                self.total_exp += exp_gained
+                if isinstance(active_creature, Creature):
+                    drops, exp_gained = active_creature.generate_drops()
+                    for item, quantity in drops.items():
+                        self.total_drops[item] = self.total_drops.get(item, 0) + quantity
+                    self.total_exp += exp_gained
 
-                # ✅ FIX INSERTED
-                if active_creature in self.creatures:
-                    idx = self.creatures.index(active_creature)
-                    if active_creature.health <= 0:
-                        self.handle_creature_defeat(active_creature)
-                        return True
+                    if active_creature in self.creatures:
+                        idx = self.creatures.index(active_creature)
+                        if active_creature.health <= 0:
+                            self.handle_creature_defeat(active_creature)
+                            return True
 
             return True
 
