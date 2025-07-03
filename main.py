@@ -3317,9 +3317,7 @@ class Battle:
                 print(">> Left untouched.")
 
         print("\n=== PATROL OVERVIEW ===")
-        for p in patrol_team:
-            print(f"{p.name},{p.max_health},{p.health},{p.stamina},{p.max_stamina},{p.luck},{p.protection},{p.light},{p.damage},{p.status_effects}")
-
+        print(player.to_line())
 
     def craft_menu(self, player):
         crafting = CraftingSystem()
