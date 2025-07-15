@@ -15,7 +15,7 @@ def input(prompt=""):
             print("[!] Input failed or was interrupted. Please try again.")
 
             
-VERSION = "15"  # ← change this manually when you update!
+VERSION = "16"  # ← change this manually when you update!
 print(f"\n🔄 SSRPG Game Version: {VERSION}\n")
 
 
@@ -1995,9 +1995,9 @@ class Battle:
 
         while prey.health > 0:
             print(f"\n--- Turn {turn} ---")
-            print("1. 🫥 Ambush (High damage, harder to land)")
-            print("2. 🐾 Pounce (Balanced attack)")
-            print("3. 🚫 Block Escape (Lower chance it flees)")
+            print("1. 🫥 Ambush")
+            print("2. 🐾 Pounce")
+            print("3. 🚫 Block Escape")
             print("4. ❌ Give Up")
 
             choice = input("Your move: ").strip().lower()
@@ -3183,8 +3183,8 @@ class Battle:
             prey = random.choice(prey_options)
             print(f"\n>> You spot a {prey.name}.")
             print("How do you approach?")
-            print("1. Ambush carefully (+bonus if success, harder)")
-            print("2. Charge in (easy roll, lower reward)")
+            print("1. Ambush carefully")
+            print("2. Charge in")
             print("3. Ignore")
 
             choice = input("> Choose: ").strip()
@@ -3317,7 +3317,9 @@ class Battle:
                 print(">> Left untouched.")
 
         print("\n=== PATROL OVERVIEW ===")
-        print(player.to_line())
+        for p in patrol_team:
+            print(p.to_line())
+
 
     def craft_menu(self, player):
         crafting = CraftingSystem()
