@@ -15,7 +15,7 @@ def input(prompt=""):
             print("[!] Input failed or was interrupted. Please try again.")
 
             
-VERSION = "16"  # ← change this manually when you update!
+VERSION = "17"  # ← change this manually when you update!
 print(f"\n🔄 SSRPG Game Version: {VERSION}\n")
 
 
@@ -1983,17 +1983,85 @@ class Battle:
             "bb": "Blacktide Beach"
         }
         return abbr_map.get(name_or_abbr.lower(), name_or_abbr)
+    def _normalize_hunters(self, players):
+        return players if isinstance(players, list) else [players]
+
+    def _living_hunters(self, hunters):
+        return [hunter for hunter in hunters if hunter.health > 0]
+
+    def _combined_hunt_stats(self, hunters):
+        living = self._living_hunters(hunters)
+        total_damage = sum(hunter.total_damage for hunter in living)
+        total_luck = sum(hunter.luck for hunter in living)
+        return total_damage, total_luck
+
+    def _print_hunt_player_stats(self, hunters):
+        print("\n=== PLAYER STATS ===")
+        for player in hunters:
+            print(f"Name:         {player.name}")
+            print(f"Max Health:   {player.max_health}")
+            print(f"Health:       {player.health}")
+            print(f"Max Stamina:  {player.max_stamina}")
+            print(f"Stamina:      {player.stamina}")
+            print(f"Luck:         {player.luck}")
+            print(f"Protection:   {player.protection}")
+            print(f"Light:        {player.light}")
+            print(f"Damage:       {player.damage}")
+            print(f"Status:       {player.status_effects}")
+            print("--------------------")
+        print("====================\n")
+
+    def _print_hunt_player_lines(self, hunters):
+        print("\n=== PLAYER LINES ===")
+        for player in hunters:
+            print(player.to_line())
+        print("=== PLAYER LINES ===\n")
+
+    def _apply_hunt_retaliation(self, prey, hunters):
+        living = self._living_hunters(hunters)
+        if not living:
+            return
+
+        target = random.choice(living)
+        retaliation = prey.damage if hasattr(prey, "damage") else 1
+        actual_damage = max(retaliation - target.total_protection, 0)
+        target.health -= actual_damage
+        target.clamp_stats()
+        # 🔥 Flavor text pool
+        messages = [
+            f"{target.name} slips up and gets struck for {actual_damage} damage!",
+            f"The {prey.name} lashes out at {target.name}, dealing {actual_damage} damage!",
+            f"{target.name} is caught off guard and takes {actual_damage} damage!",
+            f"The {prey.name} snaps back, hitting {target.name} for {actual_damage} damage!",
+            f"{target.name} missteps—🩸 hit for {actual_damage} damage!",
+            f"The prey fights back! {target.name} takes {actual_damage} damage!",
+            f"{target.name} couldn't dodge in time and takes {actual_damage} damage!",
+        ]
+
+        print("🩸 " + random.choice(messages))
+
     def run_hunting_minigame(self, player, prey, biome):
-        import time
+        hunters = self._normalize_hunters(player)
         turn = 1
-        flee_chance = 0.15
         block_success = False
 
-        print(f"\n🌾 {player.name} begins stalking the {prey.name}...")
+        hunter_names = ", ".join(h.name for h in hunters)
+
+        print(f"\n🌾 {hunter_names} begin stalking the {prey.name}...")
         print(f"{prey.name} HP: {prey.health}/{prey.max_health}")
-        print(f"{player.name} HP: {player.health}/{player.max_health} | Stamina: {player.stamina}/{player.max_stamina}")
+        for hunter in hunters:
+            print(f"{hunter.name} HP: {hunter.health}/{hunter.max_health} | Stamina: {hunter.stamina}/{hunter.max_stamina}")
 
         while prey.health > 0:
+            living = self._living_hunters(hunters)
+            if not living:
+                print("\n💀 All hunters are down. The hunt is over.")
+                self._print_hunt_player_stats(hunters)
+                self._print_hunt_player_lines(hunters)
+                return
+
+            total_damage, total_luck = self._combined_hunt_stats(hunters)
+
             print(f"\n--- Turn {turn} ---")
             print("1. 🫥 Ambush")
             print("2. 🐾 Pounce")
@@ -2003,68 +2071,59 @@ class Battle:
             choice = input("Your move: ").strip().lower()
 
             if choice == "4":
-                print(f"{player.name} gives up the hunt.")
+                print(f"{hunter_names} give up the hunt.")
+                self._print_hunt_player_stats(hunters)
+                self._print_hunt_player_lines(hunters)
                 return
 
-            elif choice == "1":  # Ambush
-                if player.stamina < 2:
-                    print(f"{player.name} is too tired to ambush!")
+            elif choice == "1":
+                ambushers = [hunter for hunter in living if hunter.stamina >= 2]
+                if not ambushers:
+                    print("No hunters have enough stamina to ambush!")
                 else:
-                    hit_chance = 0.6 + (player.luck - prey.luck) * 0.02
+                    for hunter in ambushers:
+                        hunter.stamina -= 2
+                        hunter.clamp_stats()
+
+                    hit_chance = 0.6 + (total_luck - prey.luck) * 0.02
+                    hit_chance = max(0.1, min(hit_chance, 0.95))
+
                     if random.random() < hit_chance:
-                        damage = player.total_damage + random.randint(5, 10)
+                        damage = total_damage + random.randint(5, 10)
                         prey.health -= damage
-                        player.stamina -= 2
-                        print(f"💥 {player.name} ambushes and hits for {damage}!")
+                        print(f"💥 The hunting party ambushes and hits for {damage}!")
                     else:
                         print("❌ The ambush fails. The prey darts away.")
-                        retaliation = prey.damage if hasattr(prey, 'damage') else 1
-                        player.health -= retaliation
-                        print(f"🩸 {prey.name} retaliates and hits {player.name} for {retaliation} damage!")
+                        self._apply_hunt_retaliation(prey, hunters)
 
-            elif choice == "2":  # Pounce
+            elif choice == "2":
                 if random.random() < 0.8:
-                    damage = player.total_damage
+                    damage = total_damage
                     prey.health -= damage
-                    print(f"✅ {player.name} pounces and deals {damage} damage!")
+                    print(f"✅ The hunting party pounces and deals {damage} damage!")
                 else:
                     print("❌ The pounce misses!")
-                    retaliation = prey.damage if hasattr(prey, 'damage') else 1
-                    player.health -= retaliation
-                    print(f"🩸 {prey.name} retaliates and hits {player.name} for {retaliation} damage!")
+                    self._apply_hunt_retaliation(prey, hunters)
 
-            elif choice == "3":  # Block Escape
+            elif choice == "3":
                 block_success = True
-                print(f"🛑 {player.name} tries to block the prey's escape!")
+                print("🛑 The hunting party tries to block the prey's escape!")
 
             else:
                 print("Invalid choice. Try 1-4.")
                 continue
 
-            # Display updated stats
+            prey.health = max(prey.health, 0)
+
             print(f"{prey.name} HP: {prey.health}/{prey.max_health}")
-            print(f"{player.name} HP: {player.health}/{player.max_health} | Stamina: {player.stamina}/{player.max_stamina}")
+            for hunter in hunters:
+                hunter.clamp_stats()
+                print(f"{hunter.name} HP: {hunter.health}/{hunter.max_health} | Stamina: {hunter.stamina}/{hunter.max_stamina}")
 
-            # Check if prey is defeated
             if prey.health <= 0:
-                print(f"\n🏁 {player.name} catches the {prey.name}!")
-                print("\n=== PLAYER STATS ===")
-                print(f"Name:         {player.name}")
-                print(f"Max Health:   {player.max_health}")
-                print(f"Health:       {player.health}")
-                print(f"Max Stamina:  {player.max_stamina}")
-                print(f"Stamina:      {player.stamina}")
-                print(f"Luck:         {player.luck}")
-                print(f"Protection:   {player.protection}")
-                print(f"Light:        {player.light}")
-                print(f"Damage:       {player.damage}")
-                print(f"Status:       {player.status_effects}")
-                print("====================\n")
-                
-                print(f"\n=== PLAYER LINE ===")
-                print(player.to_line())
-                print(f"=== PLAYER LINE ===\n")
-
+                print(f"\n🏁 {hunter_names} catch the {prey.name}!")
+                self._print_hunt_player_stats(hunters)
+                self._print_hunt_player_lines(hunters)
 
                 drops, exp_gained = prey.generate_drops()
                 print(f"Drops gained: {drops}")
@@ -2073,43 +2132,22 @@ class Battle:
                     self.total_drops[item] = self.total_drops.get(item, 0) + quantity
                 self.total_exp += exp_gained
                 self._maybe_trigger_posthunt_encounter(biome)
-
                 return
 
-            # Attempt prey escape
             escape_chance = 0.25
             if prey.health < prey.max_health * 0.3:
                 escape_chance += 0.3
-
             if block_success:
                 escape_chance -= 0.2
 
             if random.random() < escape_chance:
                 print(f"⚠️ The {prey.name} flees successfully!")
-                
-                print("\n=== PLAYER STATS ===")
-                print(f"Name:         {player.name}")
-                print(f"Max Health:   {player.max_health}")
-                print(f"Health:       {player.health}")
-                print(f"Max Stamina:  {player.max_stamina}")
-                print(f"Stamina:      {player.stamina}")
-                print(f"Luck:         {player.luck}")
-                print(f"Protection:   {player.protection}")
-                print(f"Light:        {player.light}")
-                print(f"Damage:       {player.damage}")
-                print(f"Status:       {player.status_effects}")
-                print("====================\n")
-                
-                print(f"\n=== PLAYER LINE ===")
-                print(player.to_line())
-                print(f"=== PLAYER LINE ===\n")
+                self._print_hunt_player_stats(hunters)
+                self._print_hunt_player_lines(hunters)
                 self._maybe_trigger_posthunt_encounter(biome)
-
-
                 return
-            else:
-                print(f"⚠️ The {prey.name} tries to flee... but fails.")
 
+            print(f"⚠️ The {prey.name} tries to flee... but fails.")
             turn += 1
 
     def _maybe_trigger_posthunt_encounter(self, biome):
@@ -2620,6 +2658,7 @@ class Battle:
             elif action == "h":
                 if not self.players:
                     self.prompt_for_players()
+
                 if self.players:
                     current_biome = input("Which biome are you hunting in?: ").strip().capitalize()
                     full_biome = None
@@ -2630,41 +2669,68 @@ class Battle:
 
                     if not full_biome or full_biome not in self.biomes:
                         print("Invalid biome selected. Please try again.")
-                
+                        continue
+
                     prey_input = input("🎯 Enter the abbreviation of the prey you want to hunt: ").strip().lower()
-            
-                    # Search directly in creature_templates for prey matching the abbreviation
+
                     selected_prey = next(
-                        (prey for prey in self.creature_templates if prey.is_prey() and prey.abbreviation.lower() == prey_input),
+                        (prey for prey in self.creature_templates
+                         if prey.is_prey() and prey.abbreviation.lower() == prey_input),
                         None
                     )
-            
+
                     if selected_prey:
-                        # 👤 Prompt for who is doing the action
                         print("\n👤 Who is hunting?")
                         for idx, player in enumerate(self.players, 1):
                             print(f"{idx}. {player.name}")
-            
+
+                        print("Enter hunter numbers separated by commas.")
+                        print("Example: 1,2")
+
+                        raw_choices = input("Enter numbers: ").strip()
+
                         try:
-                            choice = int(input("Enter number: ")) - 1
-                            if 0 <= choice < len(self.players):
-                                player = self.players[choice]
-                            else:
+                            indexes = []
+                            for part in raw_choices.split(","):
+                                part = part.strip()
+                                if not part:
+                                    continue
+                                idx = int(part) - 1
+                                if 0 <= idx < len(self.players):
+                                    indexes.append(idx)
+
+                            indexes = list(dict.fromkeys(indexes))
+
+                            if not indexes:
                                 print("Invalid choice. Defaulting to first player.")
-                                player = self.players[0]
+                                hunters = [self.players[0]]
+                            else:
+                                hunters = [self.players[i] for i in indexes]
+
                         except ValueError:
                             print("Invalid input. Defaulting to first player.")
-                            player = self.players[0]
+                            hunters = [self.players[0]]
 
-                
-            
-                        self.run_hunting_minigame(player, selected_prey, full_biome)
+                        prey_to_hunt = Creature(
+                            selected_prey.name,
+                            selected_prey.abbreviation,
+                            selected_prey.biome,
+                            selected_prey.damage,
+                            selected_prey.max_health,
+                            selected_prey.drops.copy(),
+                            selected_prey.exp_range,
+                            selected_prey.is_predator,
+                            selected_prey.status_effects.copy(),
+                            selected_prey.special_ability,
+                            selected_prey.luck
+                        )
+                        prey_to_hunt.reset_health()
+
+                        self.run_hunting_minigame(hunters, prey_to_hunt, full_biome)
                     else:
                         print("❌ No prey found with that abbreviation. Please try again.")
                 continue
 
-
-                
             elif action == "kymera":
                 shop = KymeraDynamicShop(ITEM_VALUES)
                 print(shop.generate_shop())
