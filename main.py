@@ -15,7 +15,7 @@ def input(prompt=""):
             print("[!] Input failed or was interrupted. Please try again.")
 
             
-VERSION = "17"  # ← change this manually when you update!
+VERSION = "18"  # ← change this manually when you update!
 print(f"\n🔄 SSRPG Game Version: {VERSION}\n")
 
 
@@ -209,7 +209,7 @@ class BountySystem:
 
 # Define the creature class
 class Creature:
-    def __init__(self, name, abbreviation, biome, damage, health, drops, exp_range, is_predator, status_effects=[], special_ability=None, luck=3, is_raid_boss=False):
+    def __init__(self, name, abbreviation, biome, damage, health, drops, exp_range, is_predator, status_effects=[], special_ability=None, luck=3, is_raid_boss=False, can_rage=True):
         self.name = name
         self.abbreviation = abbreviation
         self.biome = biome
@@ -228,6 +228,7 @@ class Creature:
         self.rage_turns_remaining = 0
         self.original_damage = self.damage
         self.is_raid_boss = is_raid_boss
+        self.can_rage = can_rage
 
 
     def __repr__(self):
@@ -319,7 +320,23 @@ class Creature:
         if self.special_ability == "frenzied_bite":
             damage = self.damage * 2
             deal_and_log(damage, f"{self.name} lunges in a frenzy, biting {target.name} for {damage} damage!")
+            
+        elif self.special_ability == "bunny_blessing":
+            chosen = random.choices(
+                ["bunny_bop", "cotton_guard"], weights=[90, 10])[0]
+            if chosen == "bunny_bop":
+                damage = 1
+                deal_and_log(damage, f"{self.name} hops forward and bonks {target.name} with a painted egg!")
+                if random.random() < 1:
+                    target.add_status_effect("dazed")
+                    log_action(f"{target.name} is so startled they become dazed!")
 
+            elif chosen == "cotton_guard":
+                heal = 3
+                self.health = min(self.max_health, self.health + heal)
+                log_action(f"{self.name} fluffs up and restores {heal} HP!")
+                display_health(self)
+            
         elif self.special_ability == "crushing_pounce":
             damage = int(self.damage * 1.5)
             deal_and_log(damage, f"{self.name} leaps with a crash, crushing {target.name} for {damage} damage!")
@@ -549,6 +566,7 @@ game_items = {
         cls("Basic Healing Poultice", {"heal": 45}),
         cls("Strong Healing Mixture", {"heal": 80}),
         cls("Marigold", {"heal": 12}),
+        cls("Spring Carrot", {"heal": 8, "stamina": 5}),
         
         cls("Stamina Tonic", {"stamina": 20}),
         cls("Juniper Berries", {"stamina": 10}),
@@ -1408,6 +1426,8 @@ class Battle:
             Creature("Minnow", "minnow", "Blacktide Beach", 1, 18, {"small meat": 0.8, "scale": 0.5}, (10, 20), False, [], special_ability="", luck=28),
             Creature("Crab", "crab", "Blacktide Beach", 6, 45, {"small meat": 0.8, "shell": 0.5}, (10, 20), False, [], special_ability="", luck=18),
 
+            # event pred
+            Creature("Spring Bunny", "sbunny", "EventCreature", 1, 6, {"small meat": 0.6, "fur": 0.4}, (8, 15), True, [], special_ability="", luck=6),
             # 🌊 Blacktide Beach Predators
             Creature("Gull", "gull", "Blacktide Beach", 6, 20, {"claw": 0.5, "feather": 0.5}, (10, 20), True, [], special_ability="rapid_lunge", luck=17),
             Creature("Crow", "crow", "Blacktide Beach", 5, 25, {"claw": 0.5, "feather": 0.5}, (10, 20), True, [], special_ability="frenzied_bite", luck=18),
@@ -1620,6 +1640,32 @@ class Battle:
                 "special_ability": "venom_lash",
                 "luck": 10,
                 "minions": ["Sea Snake", "Crab"]
+            },
+            {
+                "name": "Bunbun Bloom",
+                "abbreviation": "EB",
+                "damage": 1,
+                "health": 75,
+                "drops": {
+                    "Spring Carrot": 0.70,
+                    "Eggshell Charm": 0.45,
+                    "Goldenrod": 0.60,
+                    "Marigold": 0.60,
+                    "Juniper Berries": 0.50,
+                    "Basic Healing Poultice": 0.25,
+                    "+1HP": 0.18,
+                    "+1Luck": 0.14,
+                    "+1Protection": 0.10,
+                    "+1DMG": 0.06,
+                    "+1 Pawmarks": 0.20
+                },
+                "exp_range": (30, 50),
+                "is_predator": True,
+                "status_effects": [],
+                "special_ability": "bunny_blessing",
+                "luck": 5,
+                "minions": ["Spring Bunny"],
+                "can_rage": False
             }
         ]
         self.DROP_TIERS = {
@@ -1677,8 +1723,10 @@ class Battle:
                     return rarity
         return "unknown"
     def determine_rage_state(self, creature):
-        # Only raid bosses can enter rage
         if not creature.is_raid_boss:
+            return None
+
+        if not getattr(creature, "can_rage", True):
             return None
 
         if creature.rage_triggered:
@@ -1729,7 +1777,8 @@ class Battle:
             boss_data["status_effects"],
             boss_data["special_ability"],
             boss_data["luck"],
-            is_raid_boss=True 
+            is_raid_boss=True,
+            can_rage=boss_data.get("can_rage", True)
         )
         raid_boss.reset_health()
 
@@ -3569,7 +3618,8 @@ class Battle:
             "BoneLegwraps": {"protection": 8},
             "SpikedCollar": {"protection": 2, "damage": 5},
             "ShellPendant": {"luck": 10, "damage": 3},
-            "ForestLuckCharm": {"luck": 10}
+            "EggshellCharm": {"luck": 6, "protection": 3},
+            "ForestLuckCharm": {"luck": 3, "protection": 2}
         }
         print("\n=== ARMOR LIST ===")
         for name, boosts in ARMOR_ITEMS.items():
@@ -3850,26 +3900,32 @@ class Battle:
                 if player.health <= 0:
                     continue
 
-                if not self.creatures:  # all creatures gone mid-loop
+                if not self.creatures:
                     battle_ended = True
                     break
 
-                # Refresh active creature after any potential death
                 if self.current_creature_index >= len(self.creatures):
                     self.current_creature_index = 0
 
                 active_creature = self.creatures[self.current_creature_index]
 
-                player.apply_status_effects()
-                if player.health > 0:
-                    while True:
-                        print(f"\n{player.name}'s turn!")
-                        action = input("Enter an action: ").strip().lower()
+                skip_turn = player.apply_status_effects()
 
-                        if not self.process_player_action(player, action, active_creature):
-                            print("Invalid action. Try again.")
-                            continue
-                        break
+                if player.health <= 0:
+                    continue
+
+                if skip_turn:
+                    print(f"{player.name}'s turn is skipped!")
+                    continue
+
+                while True:
+                    print(f"\n{player.name}'s turn!")
+                    action = input("Enter an action: ").strip().lower()
+
+                    if not self.process_player_action(player, action, active_creature):
+                        print("Invalid action. Try again.")
+                        continue
+                    break
 
             if active_creature.health > 0:
                 alive_players = [p for p in self.players if p.health > 0]
