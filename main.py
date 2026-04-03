@@ -15,7 +15,7 @@ def input(prompt=""):
             print("[!] Input failed or was interrupted. Please try again.")
 
             
-VERSION = "19"  # ← change this manually when you update!
+VERSION = "20"  # ← change this manually when you update!
 print(f"\n🔄 SSRPG Game Version: {VERSION}\n")
 
 
@@ -3779,31 +3779,57 @@ class Battle:
 
     def use_item(self, player):
         print("\n" * 21)
-        print("Choose an item to use by typing its abbreviation:")
+        print("Choose an item to use by typing its abbreviation.")
+        print("Type Q to cancel.")
 
-        abbrev = input("Enter item abbreviation: ").upper()
-        item = next((i for i in self.items if i.abbreviation == abbrev), None)
+        while True:
+            abbrev = input("Enter item abbreviation: ").strip().upper()
 
-        if item:
-            try:
-                quantity = int(input(f"How many {item.name} do you want to use? "))
-                if quantity <= 0:
-                    print("You must use at least one.")
-                    return
-            except ValueError:
-                print("Invalid number.")
-                return
+            if abbrev == 'Q':
+                print("Cancelled item use.")
+                return False
+
+            item = next((i for i in self.items if i.abbreviation == abbrev), None)
+
+            if not item:
+                print("Item not found. Try again.")
+                continue
+
+            while True:
+                qty_raw = input(f"How many {item.name} do you want to use? (Q to cancel): ").strip()
+
+                if qty_raw.upper() == 'Q':
+                    print("Cancelled item use.")
+                    return False
+
+                try:
+                    quantity = int(qty_raw)
+                    if quantity <= 0:
+                        print("You must use at least one.")
+                        continue
+                    break
+                except ValueError:
+                    print("Invalid number. Try again.")
 
             if any(k in item.effects for k in ['heal', 'remove_status', 'stamina', 'boost_protection']):
                 print("\nChoose target player:")
                 for idx, pl in enumerate(self.players, 1):
                     print(f"{idx}. {pl.name} - HP: {pl.health}/{pl.max_health}")
 
-                try:
-                    target_idx = int(input("Enter player number: ")) - 1
-                    if 0 <= target_idx < len(self.players):
-                        target = self.players[target_idx]
+                while True:
+                    target_raw = input("Enter player number (Q to cancel): ").strip()
 
+                    if target_raw.upper() == 'Q':
+                        print("Cancelled item use.")
+                        return False
+
+                    try:
+                        target_idx = int(target_raw) - 1
+                        if not (0 <= target_idx < len(self.players)):
+                            print("Invalid target selection. Try again.")
+                            continue
+
+                        target = self.players[target_idx]
                         display_header(player.name + "'s Turn")
 
                         raw_heal = 0
@@ -3814,14 +3840,14 @@ class Battle:
                         for _ in range(quantity):
                             for effect, value in item.effects.items():
                                 if effect == "heal":
-                                    raw_heal += value
                                     healed = min(value, target.max_health - target.health)
                                     target.health += healed
+                                    raw_heal += healed
 
                                 elif effect == "stamina":
-                                    raw_stamina += value
                                     restored = min(value, target.max_stamina - target.stamina)
                                     target.stamina += restored
+                                    raw_stamina += restored
 
                                 elif effect == "boost_protection":
                                     target.temp_protection += value
@@ -3837,8 +3863,11 @@ class Battle:
                                         "Moonstone Tonic": "RED_BLIGHT",
                                     }
                                     effect_to_remove = effect_removers.get(item.name)
-                                    if isinstance(target.status_effects, list):
-                                        match = next((s for s in target.status_effects if s.lower() == effect_to_remove.lower()), None)
+                                    if effect_to_remove and isinstance(target.status_effects, list):
+                                        match = next(
+                                            (s for s in target.status_effects if s.lower() == effect_to_remove.lower()),
+                                            None
+                                        )
                                         if match:
                                             target.status_effects.remove(match)
                                             removed_status = effect_to_remove
@@ -3855,14 +3884,13 @@ class Battle:
                         print(target.to_line())
                         self.items_used[item.name] = self.items_used.get(item.name, 0) + quantity
                         print(f"\n✅ Used {quantity} x {item.name} on {target.name}.\n")
-                    else:
-                        print("Invalid target selection.")
-                except ValueError:
-                    print("Please enter a valid number.")
+                        return True
+
+                    except ValueError:
+                        print("Please enter a valid number.")
             else:
                 print("This item doesn't have healing/support effects yet handled.")
-        else:
-            print("Item not found.")
+                return False
 
 
 
@@ -4259,7 +4287,22 @@ class Battle:
             return True
 
         elif action == 'ui':
-            self.use_item(player)
+            return self.use_item(player)
+        elif action == 'p':
+            display_header(player.name + "'s Turn")
+
+            log_action(f"{player.name} hesitates... and leaves an opening!")
+
+            # Enemy gets a free hit
+            retaliation = active_creature.damage
+            actual_damage = max(retaliation - player.total_protection, 0)
+
+            player.health -= actual_damage
+            player.clamp_stats()
+
+            log_action(f"{active_creature.name} takes advantage and hits {player.name} for {actual_damage} damage!")
+            display_health(player)
+
             return True
 
         return False
