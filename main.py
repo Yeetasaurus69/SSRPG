@@ -1848,6 +1848,13 @@ class Battle:
             return creature.rage_type
 
         return None
+    def _start_battle_with_team(self, team):
+        original_players = self.players
+        self.players = team
+        try:
+            self.start_battle()
+        finally:
+            self.players = original_players
 
     def apply_rage_effects(creature, player_hit=None):
         """Ongoing rage effects."""
@@ -3354,7 +3361,7 @@ class Battle:
                     print(f"{selected.name} is already in.")
                     continue
 
-                if selected.stamina < 5:
+                if selected.stamina < 4:
                     print(f"{selected.name} has too little stamina (need 5).")
                     continue
 
@@ -3468,7 +3475,7 @@ class Battle:
             self.creatures = [enemy]
 
             print(f"\n>> {enemy.name} appears! ({enemy.health} HP)")
-            self.start_battle()
+            self._start_battle_with_team(patrol_team)
 
         elif roll == 9:  # Ambush
             print("\n>> AMBUSH! Enemies surround you.")
@@ -3497,7 +3504,7 @@ class Battle:
                 self.creatures.append(enemy)
             for c in self.creatures:
                 print(f"- {c.name} ({c.health} HP)")
-            self.start_battle()
+            self._start_battle_with_team(patrol_team)
 
         else:  # Special cache
             print("\n>> You find a hidden cache among rocks!")
@@ -3528,7 +3535,7 @@ class Battle:
                 )
                 enemy.reset_health()
 
-                self.start_battle()
+                self._start_battle_with_team(patrol_team)
             elif choice == "1":
                 print(">> You grab rare loot and escape!")
                 for p in patrol_team:
