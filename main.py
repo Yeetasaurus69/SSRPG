@@ -1732,7 +1732,7 @@ class Battle:
                 "name": "Bunbun Bloom",
                 "abbreviation": "EB",
                 "damage": 1,
-                "health": 75,
+                "health": 45,
                 "drops": {
                     "Spring Carrot": 0.70,
                     "Eggshell Charm": 0.45,
