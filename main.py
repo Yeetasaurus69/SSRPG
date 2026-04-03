@@ -1038,6 +1038,93 @@ class PlayerCharacter:
         if effect not in self.status_effects:
             self.status_effects.append(effect)
 
+    def edit_character_line():
+        player = PlayerCharacter.from_input()
+
+        editable_fields = {
+            "n": ("name", str, "Name"),
+            "mh": ("max_health", int, "Max Health"),
+            "h": ("health", int, "Health"),
+            "s": ("stamina", int, "Stamina"),
+            "ms": ("max_stamina", int, "Max Stamina"),
+            "l": ("luck", int, "Luck"),
+            "p": ("protection", int, "Protection"),
+            "d": ("damage", int, "Damage"),
+            "td": ("temp_damage", int, "Temp Damage"),
+            "tp": ("temp_protection", int, "Temp Protection"),
+            "r": ("rest_counter", int, "Rest Counter"),
+            "cn": ("current_nest", str, "Current Nest"),
+            "se": ("status_effects", list, "Status Effects"),
+        }
+
+        while True:
+            print("\n=== CHARACTER LINE EDITOR ===")
+            print(f"Current character: {player.name}")
+            print(f"Current line:\n{player.to_line()}\n")
+
+            print("Editable fields:")
+            print("n  = Name")
+            print("mh = Max Health")
+            print("h  = Health")
+            print("s  = Stamina")
+            print("ms = Max Stamina")
+            print("l  = Luck")
+            print("p  = Protection")
+            print("d  = Damage")
+            print("td = Temp Damage")
+            print("tp = Temp Protection")
+            print("r  = Rest Counter")
+            print("cn = Current Nest")
+            print("se = Status Effects")
+            print("q  = Finish")
+
+            choice = input("What do you want to edit?: ").strip().lower()
+
+            if choice == "q":
+                print("\n=== UPDATED CHARACTER LINE ===")
+                print(player.to_line())
+                print("==============================\n")
+                return player
+
+            if choice not in editable_fields:
+                print("Invalid option.")
+                continue
+
+            attr_name, value_type, label = editable_fields[choice]
+
+            try:
+                if attr_name == "status_effects":
+                    raw = input(
+                        "Enter status effects separated by commas (or 'none'): "
+                    ).strip()
+
+                    if raw.lower() == "none" or raw == "":
+                        new_value = []
+                    else:
+                        new_value = [s.strip() for s in raw.split(",") if s.strip()]
+
+                elif value_type is int:
+                    new_value = int(input(f"Enter new {label}: ").strip())
+
+                else:
+                    new_value = input(f"Enter new {label}: ").strip()
+
+                setattr(player, attr_name, new_value)
+
+                if attr_name in ("health", "stamina"):
+                    player.clamp_stats()
+
+                if player.health > player.max_health:
+                    player.health = player.max_health
+                if player.stamina > player.max_stamina:
+                    player.stamina = player.max_stamina
+
+                print(f"✅ {label} updated.")
+                print(player.to_line())
+
+            except ValueError:
+                print("❌ Invalid input. Please enter the correct type.")
+
     def groom_wounds(self, target):
         heal_amount = 5
         target.health = min(target.health + heal_amount, target.max_health)
@@ -2659,7 +2746,9 @@ class Battle:
                     print("You have chosen to face a Raid Boss manually!")
                     self.start_raid_boss_battle()
                 continue
-
+            elif action == 'el':
+                PlayerCharacter.edit_character_line()
+                continue
 
             elif action == 's':
                 if not self.players:
