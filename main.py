@@ -15,7 +15,7 @@ def input(prompt=""):
             print("[!] Input failed or was interrupted. Please try again.")
 
             
-VERSION = "20"  # ← change this manually when you update!
+VERSION = "19"  # ← change this manually when you update!
 print(f"\n🔄 SSRPG Game Version: {VERSION}\n")
 
 
@@ -3366,7 +3366,7 @@ class Battle:
 
         # Spend stamina
         for p in patrol_team:
-            p.stamina -= 5
+            p.stamina -= 4
 
         leader = patrol_team[0]
         print(f"\n>> {leader.name} leads the patrol.")
