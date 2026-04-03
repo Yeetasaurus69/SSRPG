@@ -15,7 +15,7 @@ def input(prompt=""):
             print("[!] Input failed or was interrupted. Please try again.")
 
             
-VERSION = "18"  # ← change this manually when you update!
+VERSION = "19"  # ← change this manually when you update!
 print(f"\n🔄 SSRPG Game Version: {VERSION}\n")
 
 
@@ -1132,6 +1132,25 @@ class PlayerCharacter:
         log_action(f"{self.name} grooms {target.name}'s wounds, restoring {heal_amount} HP!")
         display_health(target)
 
+    def bunny_bless(self, target):
+        display_header(f"{self.name} uses Bunny Blessing")
+
+        if self.stamina >= 4:
+            heal_amount = 10
+            self.stamina -= 4
+            self.clamp_stats()
+
+            target.health = min(target.max_health, target.health + heal_amount)
+
+            if target == self:
+                log_action(f"🌸 {self.name} draws on the bunny's blessing, restoring {heal_amount} HP!")
+            else:
+                log_action(f"🌸 {self.name} shares a bunny's blessing with {target.name}, restoring {heal_amount} HP!")
+
+            display_health(target)
+        else:
+            log_action(f"{self.name} is too exhausted to channel the bunny's blessing!")
+
     def taunt(self, battle):
         display_header(self.name + "'s Turn")
         if self.stamina >= 5:
@@ -1744,6 +1763,7 @@ class Battle:
                     "+1Luck": 0.14,
                     "+1Protection": 0.10,
                     "+1DMG": 0.06,
+                    "Bunny Blessing": 0.06,
                     "+1 Pawmarks": 0.20
                 },
                 "exp_range": (30, 50),
@@ -4154,13 +4174,14 @@ class Battle:
 
             return True
 
-        elif action in ('gw', 'ft', 'fl', 'qn'):
+        elif action in ('gw', 'ft', 'fl', 'bb', 'qn'):
             target_player = self.choose_target(for_heal=True)
             if target_player:
                 getattr(player, {
                     'gw': 'groom_wounds',
                     'ft': 'field_tend',
                     'fl': 'frantic_licks',
+                    'bb': 'bunny_bless',
                     'qn': 'quick_nudge'
                 }[action])(target_player)
             return True
