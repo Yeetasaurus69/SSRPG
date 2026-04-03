@@ -15,7 +15,7 @@ def input(prompt=""):
             print("[!] Input failed or was interrupted. Please try again.")
 
             
-VERSION = "19"  # ← change this manually when you update!
+VERSION = "20"  # ← change this manually when you update!
 print(f"\n🔄 SSRPG Game Version: {VERSION}\n")
 
 
