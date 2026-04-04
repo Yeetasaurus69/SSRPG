@@ -61,7 +61,7 @@ PREY_NAMES = {
     "Sparrow", "Rabbit", "Water Vole", "Small Fish",
     "Mouse", "Squirrel", "Thrush", "Blackbird",
     "Mountain Hare", "Small Bird", "Vole",
-    "Trout", "Minnow", "Crab"
+    "Trout", "Minnow", "Crab", "Beetle", "Lizard"
 }
 
 # === VALUE SYSTEM ===
