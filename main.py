@@ -288,7 +288,7 @@ class Creature:
 
         damage_dealt = max(self.damage - target.protection, 0)
         target.health -= damage_dealt
-        log_action(f"{self.name} attacks {target.name} for {damage_dealt} damage after protection!")
+        log_action(f"{self.name} attacks {target.name} for {damage_dealt} damage!")
 
         if hasattr(target, 'status_effects'):
             for effect in self.status_effects:
@@ -314,7 +314,7 @@ class Creature:
         def deal_and_log(dmg, message):
             effective_damage = max(dmg - target.total_protection, 0)
             target.health -= effective_damage
-            log_action(f"{message} ({effective_damage} after protection!)")
+            log_action(f"{message} ({effective_damage}!)")
             display_health(target)
 
         if self.special_ability == "frenzied_bite":
@@ -1256,6 +1256,32 @@ class PlayerCharacter:
         else:
             log_action(f"{self.name} is too drained to snarl!")
 
+    def rabid_frenzy(self, target):
+        display_header(self.name + "'s Turn")
+
+        if self.stamina >= 8:
+            self.stamina -= 8
+
+            hits = random.randint(2, 4)
+            total_damage = 0
+
+            log_action(f"{self.name} erupts into a rabid frenzy, snapping wildly!")
+
+            for _ in range(hits):
+                dmg = int(self.damage * 0.6)
+                target.health -= dmg
+                total_damage += dmg
+
+            # small self-damage (old + unstable)
+            recoil = 3
+            self.health -= recoil
+
+            log_action(f"{self.name} lands {hits} bites for {total_damage} total damage!")
+            log_action(f"In its frenzy, it hurts itself for {recoil} damage!")
+            display_health(target)
+        else:
+            log_action(f"{self.name} is too exhausted to lose control!")
+
     def maul(self, target):
         display_header(self.name + "'s Turn")
         if self.stamina >= 30:
@@ -1938,7 +1964,279 @@ class Battle:
 
         return minions + [raid_boss]
 
+    def _patrol_team_luck(self, patrol_team):
+        return sum(p.luck for p in patrol_team)
 
+    def _patrol_team_alive(self, patrol_team):
+        return [p for p in patrol_team if p.health > 0]
+
+    def _apply_patrol_stamina_cost(self, patrol_team, cost):
+        for p in patrol_team:
+            p.stamina -= cost
+            p.clamp_stats()
+
+    def _patrol_damage_random_member(self, patrol_team, min_damage, max_damage, reason):
+        alive = self._patrol_team_alive(patrol_team)
+        if not alive:
+            return
+
+        target = random.choice(alive)
+        raw_damage = random.randint(min_damage, max_damage)
+        actual_damage = max(raw_damage - target.total_protection, 0)
+        target.health -= actual_damage
+        target.clamp_stats()
+        print(f">> {target.name} {reason} and takes {actual_damage} damage!")
+
+    def _grant_patrol_loot(self, patrol_team, loot_table, multiplier=1):
+        for p in patrol_team:
+            for item, chance in loot_table.items():
+                if random.random() < chance:
+                    amount = random.randint(1, multiplier)
+                    print(f"{p.name} gains {amount}x {item}")
+
+    def _spawn_patrol_enemy(self, template):
+        enemy = Creature(
+            template.name,
+            template.abbreviation,
+            template.biome,
+            template.damage,
+            template.health,
+            template.drops,
+            template.exp_range,
+            template.is_predator,
+            template.status_effects.copy(),
+            template.special_ability,
+            template.luck
+        )
+        enemy.reset_health()
+        return enemy
+
+    def _start_patrol_battle(self, patrol_team, enemies):
+        self.creatures = enemies
+        self._start_battle_with_team(patrol_team)
+
+    def _patrol_scout_check(self, patrol_team, difficulty):
+        team_luck = self._patrol_team_luck(patrol_team)
+        roll = random.randint(1, 20) + (team_luck // max(1, len(patrol_team) * 4))
+        return roll >= difficulty
+
+    def _run_herb_patrol_event(self, patrol_team, selected_biome):
+        plant_pool = [plant.name for plant in self.plants if plant.biome == selected_biome]
+        if not plant_pool:
+            print(">> The patrol finds nothing useful.")
+            return
+
+        plant = random.choice(plant_pool)
+        print(f"\n>> The patrol finds a patch of {plant}.")
+        print("1. Harvest quickly")
+        print("2. Post a lookout and harvest")
+        print("3. Leave it")
+
+        choice = input("> Choose: ").strip()
+
+        if choice == "1":
+            if random.random() < 0.55:
+                print(">> You strip the patch fast and get out.")
+                for p in patrol_team:
+                    print(f"{p.name} gains 2x {plant}")
+            else:
+                print(">> The patch is trampled in the rush.")
+                self._patrol_damage_random_member(patrol_team, 1, 3, "slips in the mess")
+        elif choice == "2":
+            success = self._patrol_scout_check(patrol_team, 12)
+            if success:
+                print(">> The lookout gives warning. The harvest goes smoothly.")
+                for p in patrol_team:
+                    print(f"{p.name} gains 3x {plant}")
+            else:
+                print(">> Something stirs nearby during the harvest.")
+                for p in patrol_team:
+                    print(f"{p.name} gains 1x {plant}")
+                if random.random() < 0.5:
+                    possible_enemies = [c for c in self.biomes[selected_biome] if c.is_predator]
+                    if possible_enemies:
+                        enemy = self._spawn_patrol_enemy(random.choice(possible_enemies))
+                        print(f">> A {enemy.name} lunges from cover!")
+                        self._start_patrol_battle(patrol_team, [enemy])
+        else:
+            print(">> The patrol leaves it untouched.")
+
+    def _run_prey_patrol_event(self, patrol_team, selected_biome):
+        prey_options = [c for c in self.biomes[selected_biome] if not c.is_predator]
+        if not prey_options:
+            print(">> No prey found.")
+            return
+
+        prey = random.choice(prey_options)
+        print(f"\n>> You spot a {prey.name}.")
+        print("1. Circle and flush it out")
+        print("2. One clean ambush")
+        print("3. Chase it down")
+        print("4. Ignore it")
+
+        choice = input("> Choose: ").strip()
+
+        if choice == "1":
+            success = self._patrol_scout_check(patrol_team, 13)
+            if success:
+                print(">> The patrol cuts off every escape route.")
+                self._grant_patrol_loot(patrol_team, prey.drops, multiplier=2)
+            else:
+                print(">> The prey bolts and the patrol wastes energy.")
+                self._apply_patrol_stamina_cost(patrol_team, 1)
+
+        elif choice == "2":
+            success = self._patrol_scout_check(patrol_team, 11)
+            if success:
+                print(">> The ambush lands cleanly.")
+                self._grant_patrol_loot(patrol_team, prey.drops, multiplier=2)
+            else:
+                print(">> The ambush goes wrong and the prey escapes.")
+                if random.random() < 0.35:
+                    self._patrol_damage_random_member(patrol_team, 1, 2, "gets kicked in the scramble")
+
+        elif choice == "3":
+            if random.random() < 0.8:
+                print(">> The chase succeeds, but it costs energy.")
+                self._apply_patrol_stamina_cost(patrol_team, 1)
+                self._grant_patrol_loot(patrol_team, prey.drops, multiplier=1)
+            else:
+                print(">> The prey vanishes into the brush.")
+                self._apply_patrol_stamina_cost(patrol_team, 2)
+
+        else:
+            print(">> You let it pass and keep moving.")
+
+    def _run_predator_patrol_event(self, patrol_team, selected_biome):
+        possible_enemies = [c for c in self.biomes[selected_biome] if c.is_predator]
+        if not possible_enemies:
+            print(">> No predators found.")
+            return
+
+        template = random.choice(possible_enemies)
+        enemy = self._spawn_patrol_enemy(template)
+
+        print(f"\n>> Hostile creature spotted: {enemy.name}!")
+        print("1. Rush it before it closes in")
+        print("2. Spread out and prepare")
+        print("3. Try to sneak away")
+        print("4. Retreat")
+
+        choice = input("> Choose: ").strip()
+
+        if choice == "1":
+            print(">> You attack before it gets comfortable.")
+            enemy.health = max(1, enemy.health - random.randint(2, 6))
+            print(f">> {enemy.name} starts the fight wounded at {enemy.health} HP.")
+            self._start_patrol_battle(patrol_team, [enemy])
+
+        elif choice == "2":
+            success = self._patrol_scout_check(patrol_team, 14)
+            if success:
+                print(">> The patrol braces well. The beast hesitates.")
+                for p in patrol_team:
+                    p.temp_protection += 2
+                self._start_patrol_battle(patrol_team, [enemy])
+                for p in patrol_team:
+                    p.temp_protection = max(0, p.temp_protection - 2)
+            else:
+                print(">> The formation breaks at the last moment.")
+                self._patrol_damage_random_member(patrol_team, 1, 4, "is clipped during the scramble")
+                self._start_patrol_battle(patrol_team, [enemy])
+
+        elif choice == "3":
+            success = self._patrol_scout_check(patrol_team, 15)
+            if success:
+                print(">> The patrol slips past unseen.")
+            else:
+                print(">> Something snaps underpaw. It heard you.")
+                self._start_patrol_battle(patrol_team, [enemy])
+
+        else:
+            print(">> The patrol falls back safely.")
+
+    def _run_ambush_patrol_event(self, patrol_team, selected_biome):
+        print("\n>> AMBUSH! Shapes burst from cover!")
+
+        possible_enemies = [c for c in self.biomes[selected_biome] if c.is_predator]
+        if not possible_enemies:
+            possible_enemies = self.biomes[selected_biome]
+
+        print("1. Hold the line")
+        print("2. Break through one side")
+        print("3. Scatter and regroup")
+
+        choice = input("> Choose: ").strip()
+
+        if choice == "1":
+            num_creatures = random.randint(2, 3)
+            enemies = [self._spawn_patrol_enemy(random.choice(possible_enemies)) for _ in range(num_creatures)]
+            print(">> The patrol digs in for a full fight.")
+            self._start_patrol_battle(patrol_team, enemies)
+
+        elif choice == "2":
+            num_creatures = random.randint(1, 2)
+            enemies = [self._spawn_patrol_enemy(random.choice(possible_enemies)) for _ in range(num_creatures)]
+            print(">> You punch a gap through the ambush!")
+            self._patrol_damage_random_member(patrol_team, 1, 3, "takes a hit breaking through")
+            self._start_patrol_battle(patrol_team, enemies)
+
+        else:
+            success = self._patrol_scout_check(patrol_team, 16)
+            if success:
+                print(">> The patrol scatters and regroups safely.")
+            else:
+                print(">> The regroup fails. You're dragged into a messy fight.")
+                num_creatures = random.randint(2, 3)
+                enemies = [self._spawn_patrol_enemy(random.choice(possible_enemies)) for _ in range(num_creatures)]
+                self._patrol_damage_random_member(patrol_team, 1, 4, "is caught in the initial rush")
+                self._start_patrol_battle(patrol_team, enemies)
+
+    def _run_cache_patrol_event(self, patrol_team, selected_biome):
+        print("\n>> You find a hidden cache tucked under roots and stone.")
+        print("1. Grab it fast")
+        print("2. Search it carefully")
+        print("3. Set a trap and wait")
+        print("4. Leave it")
+
+        choice = input("> Choose: ").strip()
+
+        possible_enemies = [c for c in self.biomes[selected_biome] if c.is_predator]
+        if not possible_enemies:
+            possible_enemies = self.biomes[selected_biome]
+
+        if choice == "1":
+            if random.random() < 0.45:
+                print(">> The cache was bait.")
+                enemy = self._spawn_patrol_enemy(random.choice(possible_enemies))
+                self._start_patrol_battle(patrol_team, [enemy])
+            else:
+                print(">> You snatch something useful and flee.")
+                for p in patrol_team:
+                    print(f"{p.name} gains +1 Luck item")
+
+        elif choice == "2":
+            success = self._patrol_scout_check(patrol_team, 13)
+            if success:
+                print(">> Careful paws uncover the best of the stash.")
+                for p in patrol_team:
+                    print(f"{p.name} gains +1 Health item")
+            else:
+                print(">> You find scraps and waste precious time.")
+                self._apply_patrol_stamina_cost(patrol_team, 1)
+
+        elif choice == "3":
+            success = self._patrol_scout_check(patrol_team, 15)
+            if success:
+                print(">> Your trap catches a scavenger nosing around the cache.")
+                for p in patrol_team:
+                    print(f"{p.name} gains +1 Damage item")
+            else:
+                print(">> Nothing comes. The patrol leaves tired and annoyed.")
+                self._apply_patrol_stamina_cost(patrol_team, 1)
+
+        else:
+            print(">> The cache is left alone.")
 
     def display_header(title):
         print("\n╔════════════════════════════════════════════════════════╗")
@@ -3324,10 +3622,10 @@ class Battle:
         if not self.players:
             return
 
-        # Biome selection
         print("\n=== CHOOSE A BIOME TO PATROL ===")
         for i, biome in enumerate(self.biomes.keys(), 1):
             print(f"{i}. {biome}")
+
         try:
             biome_choice = int(input("Select a biome (number): ")) - 1
             selected_biome = list(self.biomes.keys())[biome_choice]
@@ -3335,7 +3633,6 @@ class Battle:
             print("Invalid selection.")
             return
 
-        # Team selection
         patrol_team = []
         print("\n=== PATROL TEAM SELECTION ===")
         for i, player in enumerate(self.players, 1):
@@ -3343,12 +3640,12 @@ class Battle:
 
         while True:
             choice = input("\nAdd player to patrol (number) or type 'done' to start patrol: ").strip()
+
             if choice.lower() == "done":
                 if patrol_team:
                     break
-                else:
-                    print("You need at least one patrol member.")
-                    continue
+                print("You need at least one patrol member.")
+                continue
 
             try:
                 idx = int(choice) - 1
@@ -3362,7 +3659,7 @@ class Battle:
                     continue
 
                 if selected.stamina < 4:
-                    print(f"{selected.name} has too little stamina (need 5).")
+                    print(f"{selected.name} has too little stamina (need 4).")
                     continue
 
                 patrol_team.append(selected)
@@ -3371,181 +3668,31 @@ class Battle:
             except ValueError:
                 print("Invalid input.")
 
-        # Spend stamina
-        for p in patrol_team:
-            p.stamina -= 4
+        self._apply_patrol_stamina_cost(patrol_team, 4)
 
         leader = patrol_team[0]
         print(f"\n>> {leader.name} leads the patrol.")
-        print(">> The patrol heads into", selected_biome)
+        print(f">> The patrol heads into {selected_biome}.")
 
-        # Encounter Roll
         roll = random.randint(1, 10)
+        team_luck = self._patrol_team_luck(patrol_team)
+
         if len(patrol_team) >= 3 and roll == 9:
-            roll = 8  # Avoid ambush
+            roll = 8
 
-        if roll <= 3:  # Peaceful herb find
-            plant_pool = [plant.name for plant in self.plants if plant.biome == selected_biome]
-            plant = random.choice(plant_pool)
-            print(f"\n>> The patrol is peaceful. You find some {plant}.")
-            print("Do you...")
-            print("1. Gather it quickly (risky)")
-            print("2. Gather carefully (safe)")
-            print("3. Leave it")
+        if team_luck >= 40 and roll == 9:
+            roll = 8
 
-            choice = input("> Choose: ").strip()
-            if choice == "1":
-                if random.random() < 0.5:
-                    for p in patrol_team:
-                        print(f"{p.name} gains 2x {plant}")
-                else:
-                    print(">> It was ruined while rushing. Nothing gained.")
-            elif choice == "2":
-                for p in patrol_team:
-                    print(f"{p.name} gains 3x {plant}")
-            else:
-                print(">> Left untouched.")
-
-        elif roll <= 6:  # Prey spotted
-            prey_options = [c for c in self.biomes[selected_biome] if not c.is_predator]
-            if not prey_options:
-                print(">> No prey found.")
-                return
-            prey = random.choice(prey_options)
-            print(f"\n>> You spot a {prey.name}.")
-            print("How do you approach?")
-            print("1. Ambush carefully")
-            print("2. Charge in")
-            print("3. Ignore")
-
-            choice = input("> Choose: ").strip()
-            if choice == "1":
-                if random.random() < 0.4:
-                    for p in patrol_team:
-                        for drop, chance in prey.drops.items():
-                            if random.random() < chance:
-                                print(f"{p.name} gains 1x {drop}")
-                else:
-                    print(">> The prey escaped.")
-            elif choice == "2":
-                if random.random() < 0.8:
-                    for p in patrol_team:
-                        for drop, chance in prey.drops.items():
-                            if random.random() < chance * 0.5:
-                                print(f"{p.name} gains 1x {drop}")
-                else:
-                    print(">> Prey escaped.")
-            else:
-                print(">> You ignore the prey and move on.")
-
-        elif roll <= 8:  # Predator encounter
-            print("\n>> Hostile creature spotted ahead!")
-            print("What do you do?")
-            print("1. Attack first")
-            print("2. Try to sneak by (Luck roll)")
-            print("3. Retreat")
-
-            choice = input("> Choose: ").strip()
-            if choice == "2" and random.random() < 0.4:
-                print(">> You sneak by successfully. Patrol ends peacefully.")
-                return
-            elif choice == "3":
-                print(">> You retreat safely.")
-                return
-
-            possible_enemies = [c for c in self.biomes[selected_biome] if c.is_predator]
-            if not possible_enemies:
-                print(">> No predators found.")
-                return
-            template = random.choice(possible_enemies)
-            enemy = Creature(
-                template.name,
-                template.abbreviation,
-                template.biome,
-                template.damage,
-                template.health,
-                template.drops,
-                template.exp_range,
-                template.is_predator,
-                template.status_effects.copy(),
-                template.special_ability,
-                template.luck
-            )
-            enemy.reset_health()
-            self.creatures = [enemy]
-
-            print(f"\n>> {enemy.name} appears! ({enemy.health} HP)")
-            self._start_battle_with_team(patrol_team)
-
-        elif roll == 9:  # Ambush
-            print("\n>> AMBUSH! Enemies surround you.")
-            possible_enemies = [c for c in self.biomes[selected_biome] if c.is_predator]
-            if not possible_enemies:
-                possible_enemies = self.biomes[selected_biome]
-            num_creatures = random.randint(2, 3)
-            self.creatures = []
-            for _ in range(num_creatures):
-                template = random.choice(possible_enemies)
-                enemy = Creature(
-                    template.name,
-                    template.abbreviation,
-                    template.biome,
-                    template.damage,
-                    template.health,
-                    template.drops,
-                    template.exp_range,
-                    template.is_predator,
-                    template.status_effects.copy(),
-                    template.special_ability,
-                    template.luck
-                )
-                enemy.reset_health()
-
-                self.creatures.append(enemy)
-            for c in self.creatures:
-                print(f"- {c.name} ({c.health} HP)")
-            self._start_battle_with_team(patrol_team)
-
-        else:  # Special cache
-            print("\n>> You find a hidden cache among rocks!")
-            print("Do you...")
-            print("1. Grab it fast (risk enemy)")
-            print("2. Search carefully (safe)")
-            print("3. Leave it")
-
-            choice = input("> Choose: ").strip()
-            if choice == "1" and random.random() < 0.4:
-                print(">> As you grab it, enemies appear!")
-                possible_enemies = [c for c in self.biomes[selected_biome] if c.is_predator]
-                if not possible_enemies:
-                    possible_enemies = self.biomes[selected_biome]
-                template = random.choice(possible_enemies)
-                enemy = Creature(
-                    template.name,
-                    template.abbreviation,
-                    template.biome,
-                    template.damage,
-                    template.health,
-                    template.drops,
-                    template.exp_range,
-                    template.is_predator,
-                    template.status_effects.copy(),
-                    template.special_ability,
-                    template.luck
-                )
-                enemy.reset_health()
-
-                self._start_battle_with_team(patrol_team)
-            elif choice == "1":
-                print(">> You grab rare loot and escape!")
-                for p in patrol_team:
-                    print(f"{p.name} gains +1 Luck item")
-            elif choice == "2":
-                print(">> Carefully gathered cache safely.")
-                for p in patrol_team:
-                    print(f"{p.name} gains +1 Health item")
-            else:
-                print(">> Left untouched.")
+        if roll <= 2:
+            self._run_herb_patrol_event(patrol_team, selected_biome)
+        elif roll <= 4:
+            self._run_prey_patrol_event(patrol_team, selected_biome)
+        elif roll <= 7:
+            self._run_predator_patrol_event(patrol_team, selected_biome)
+        elif roll <= 9:
+            self._run_ambush_patrol_event(patrol_team, selected_biome)
+        else:
+            self._run_cache_patrol_event(patrol_team, selected_biome)
 
         print("\n=== PATROL OVERVIEW ===")
         for p in patrol_team:
@@ -3879,18 +4026,43 @@ class Battle:
                                             target.status_effects.remove(match)
                                             removed_status = effect_to_remove
 
-                        if raw_heal:
-                            print(f"{target.name} healed {raw_heal} HP total!")
-                        if raw_stamina:
-                            print(f"{target.name} regained {raw_stamina} stamina total!")
-                        if total_protection:
-                            print(f"{target.name} gained {total_protection} protection total!")
-                        if removed_status:
-                            print(f"{target.name} is no longer affected by {removed_status}.")
+                        messages = []
+                        # HEAL
+                        if "heal" in item.effects:
+                            if raw_heal > 0:
+                                messages.append(f"{target.name} healed for {raw_heal} HP")
+                            else:
+                                messages.append(f"{target.name} is already at full health — {item.name} has no effect")
+
+                        # STAMINA
+                        if "stamina" in item.effects:
+                            if raw_stamina > 0:
+                                messages.append(f"{target.name} recovered {raw_stamina} stamina")
+                            else:
+                                messages.append(f"{target.name} is already at full stamina — {item.name} has no effect")
+
+                        # PROTECTION
+                        if "boost_protection" in item.effects:
+                            if total_protection > 0:
+                                messages.append(f"{target.name} gained {total_protection} protection")
+                            else:
+                                messages.append(f"{item.name} failed to increase protection")
+
+                        # STATUS REMOVAL
+                        if "remove_status" in item.effects:
+                            if removed_status:
+                                messages.append(f"{target.name} is no longer affected by {removed_status}")
+                            else:
+                                messages.append(f"{target.name} had no removable status — {item.name} had no effect")
 
                         print(target.to_line())
+
                         self.items_used[item.name] = self.items_used.get(item.name, 0) + quantity
+
                         print(f"\n✅ Used {quantity} x {item.name} on {target.name}.\n")
+
+                        for msg in messages:
+                            print(f">> {msg}")
                         return True
 
                     except ValueError:
@@ -4221,7 +4393,7 @@ class Battle:
                 }[action])(target_player)
             return True
 
-        elif action in ('hp', 'pl', 'ns', 'm', 'dcw', 'ss', 'rc'):
+        elif action in ('hp', 'pl', 'ns', 'm', 'dcw', 'ss', 'rc', 'rf'):
             target_player = self.choose_target()
             if target_player:
                 getattr(player, {
@@ -4231,7 +4403,8 @@ class Battle:
                     'm': 'maul',
                     'dcw': 'double_claw',
                     'ss': 'shoulder_slam',
-                    'rc': 'ram_charge'
+                    'rc': 'ram_charge',
+                    'rf': 'rabid_frenzy'
                 }[action])(target_player)
                 if self.handle_creature_defeat(target_player):
                     return True
