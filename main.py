@@ -15,7 +15,7 @@ def input(prompt=""):
             print("[!] Input failed or was interrupted. Please try again.")
 
             
-VERSION = "20"  # ← change this manually when you update!
+VERSION = "21"  # ← change this manually when you update!
 print(f"\n🔄 SSRPG Game Version: {VERSION}\n")
 
 
@@ -32,6 +32,27 @@ BURN_CHANCE = 0.02
 BLEED_CHANCE = 0.03
 POISON_CHANCE = 0.05
 RED_CHANCE = 0.04
+
+SPECIAL_MUTATION_ENCOUNTER_AFTER_WIN = 0.0001
+SPECIAL_MUTATION_ENCOUNTER_AFTER_ESCAPE = 0.005
+
+STRANGE_PLANT_APPEAR_CHANCE = 0.002
+STRANGE_PLANT_MUTATION_CHANCE = 0.02
+STRANGE_PLANT_REDBLIGHT_CHANCE = 0.25
+
+POST_RAID_MUTATION_CHANCE = 0.001
+
+MUTATION_CODES = {
+    "00": "None",
+    "rm": "Rage Mutation",
+    "nb": "Night Blood",
+    "ih": "Iron Hide",
+    "sf": "Sharp Fangs",
+    "he": "Hollow Eyes",
+}
+ROLLABLE_MUTATIONS = ["rm", "nb", "ih", "sf", "he"]
+
+VALID_MUTATION_CODES = set(MUTATION_CODES.keys())
 
 BIOME_ABBREVIATIONS = {
     "Howler's Rise": "HR",
@@ -288,6 +309,7 @@ class Creature:
 
         damage_dealt = max(self.damage - target.protection, 0)
         target.health -= damage_dealt
+        target.clamp_stats()
         log_action(f"{self.name} attacks {target.name} for {damage_dealt} damage!")
 
         if hasattr(target, 'status_effects'):
@@ -314,6 +336,7 @@ class Creature:
         def deal_and_log(dmg, message):
             effective_damage = max(dmg - target.total_protection, 0)
             target.health -= effective_damage
+            target.clamp_stats()
             log_action(f"{message} ({effective_damage}!)")
             display_health(target)
 
@@ -356,7 +379,7 @@ class Creature:
 
         elif self.special_ability == "rapid_lunge":
             damage = self.damage * 2
-            deal_and_log(damage, f"{self.name} darts forward, striking {target.name} twice for {damage} total damage!")
+            deal_and_log(damage, f"{self.name} darts forward, striking {target.name} twice for {damage} damage!")
 
         elif self.special_ability == "reckless_charge":
             damage = int(self.damage * 1.8)
@@ -924,7 +947,7 @@ class CraftingSystem:
 class PlayerCharacter:
     def __init__(self, name, max_health, health, stamina, max_stamina, luck,
                  protection, light, damage, status_effects,
-                 temp_damage=0, temp_protection=0, rest_counter=0, current_nest="Broken Nest"):
+                 temp_damage=0, temp_protection=0, rest_counter=0, current_nest="Broken Nest", mutation_code="00"):
         self.name = name
         self.max_health = max_health
         self.health = health
@@ -946,6 +969,11 @@ class PlayerCharacter:
         self.temp_protection = 0
         self.rest_counter = rest_counter
         self.current_nest = current_nest
+        self.mutation_code = mutation_code if mutation_code in VALID_MUTATION_CODES else "00"
+        self.is_raging = False
+        self.rage_turns = 0
+        self.rage_used_this_battle = False
+        self.rage_just_triggered = False
 
     @property
     def total_damage(self):
@@ -986,6 +1014,7 @@ class PlayerCharacter:
             try:
                 data_line = input("Please PASTE Character Line!: ").strip()
                 parts = data_line.split(",")
+
                 if len(parts) < 9:
                     print("[!] Not enough values. Please enter the full stat line.")
                     continue
@@ -1004,15 +1033,41 @@ class PlayerCharacter:
                 rest_counter = int(parts[11]) if len(parts) > 11 else 0
                 current_nest = parts[12] if len(parts) > 12 else "Broken Nest"
 
-                # Grab everything after index 12 as status effects
-                status_effects = parts[13:] if len(parts) > 13 else []
-                cleaned_effects = [s.strip() for s in status_effects if s.strip().lower() != "none" and s.strip() != ""]
+                extras = [p.strip() for p in parts[13:]]
+
+                mutation_code = "00"
+                status_effects = []
+
+                if extras:
+                    last_value = extras[-1].lower()
+
+                    if last_value in VALID_MUTATION_CODES:
+                        mutation_code = last_value
+                        status_effects = extras[:-1]
+                    else:
+                        status_effects = extras
+
+                cleaned_effects = [
+                    s for s in status_effects
+                    if s and s.lower() != "none"
+                ]
 
                 return PlayerCharacter(
-                    name, max_health, health, stamina, max_stamina, luck,
-                    protection, light, damage, cleaned_effects,
-                    temp_damage=temp_damage, temp_protection=temp_protection,
-                    rest_counter=rest_counter, current_nest=current_nest
+                    name,
+                    max_health,
+                    health,
+                    stamina,
+                    max_stamina,
+                    luck,
+                    protection,
+                    light,
+                    damage,
+                    cleaned_effects,
+                    temp_damage=temp_damage,
+                    temp_protection=temp_protection,
+                    rest_counter=rest_counter,
+                    current_nest=current_nest,
+                    mutation_code=mutation_code
                 )
 
             except ValueError:
@@ -1026,9 +1081,14 @@ class PlayerCharacter:
         if self.health < 0:
             self.health = 0
     def to_line(self):
-        status_part = ','.join(self.status_effects) if self.status_effects else 'None'
-        return f"{self.name},{self.max_health},{self.health},{self.stamina},{self.max_stamina},{self.luck},{self.protection},{self.light},{self.damage},{self.temp_damage},{self.temp_protection},{self.rest_counter},{self.current_nest},{status_part}"
-
+        status_part = ",".join(self.status_effects) if self.status_effects else "None"
+        mutation_part = self.mutation_code if self.mutation_code else "00"
+        return (
+            f"{self.name},{self.max_health},{self.health},{self.stamina},"
+            f"{self.max_stamina},{self.luck},{self.protection},{self.light},"
+            f"{self.damage},{self.temp_damage},{self.temp_protection},"
+            f"{self.rest_counter},{self.current_nest},{status_part},{mutation_part}"
+        )
     def add_status_effect(self, effect):
         # Remove "none" if present
         if "none" in self.status_effects:
@@ -1059,10 +1119,9 @@ class PlayerCharacter:
 
         while True:
             print("\n=== CHARACTER LINE EDITOR ===")
-            print(f"Current character: {player.name}")
-            print(f"Current line:\n{player.to_line()}\n")
+            print(f"Current line: {player.to_line()}")
 
-            print("Editable fields:")
+            print("\nFields:")
             print("n  = Name")
             print("mh = Max Health")
             print("h  = Health")
@@ -1076,54 +1135,96 @@ class PlayerCharacter:
             print("r  = Rest Counter")
             print("cn = Current Nest")
             print("se = Status Effects")
-            print("q  = Finish")
+            print("q / done = Finish")
 
-            choice = input("What do you want to edit?: ").strip().lower()
+            status_text = ", ".join(player.status_effects) if player.status_effects else "None"
 
-            if choice == "q":
+            print(f"\n=== {player.name}'s Current Stats ===")
+            print(
+                f"HP {player.health}/{player.max_health} | "
+                f"STAM {player.stamina}/{player.max_stamina} | "
+                f"LUCK {player.luck} | "
+                f"PROT {player.protection} | "
+                f"DMG {player.damage}"
+            )
+            print(
+                f"Temp DMG {player.temp_damage} | "
+                f"Temp PROT {player.temp_protection} | "
+                f"Rest {player.rest_counter}"
+            )
+            print(f"Nest: {player.current_nest}")
+            print(f"Status: {status_text}")
+
+            choice = input("\nWhat do you want to edit?: ").strip().lower()
+
+            if choice in ("q", "done"):
                 print("\n=== UPDATED CHARACTER LINE ===")
                 print(player.to_line())
                 print("==============================\n")
                 return player
 
             if choice not in editable_fields:
-                print("Invalid option.")
+                print("❌ Invalid option.")
                 continue
 
             attr_name, value_type, label = editable_fields[choice]
 
             try:
                 if attr_name == "status_effects":
-                    raw = input(
-                        "Enter status effects separated by commas (or 'none'): "
-                    ).strip()
-
+                    raw = input("Enter status effects separated by commas (or 'none'): ").strip()
                     if raw.lower() == "none" or raw == "":
                         new_value = []
                     else:
                         new_value = [s.strip() for s in raw.split(",") if s.strip()]
-
                 elif value_type is int:
                     new_value = int(input(f"Enter new {label}: ").strip())
-
                 else:
                     new_value = input(f"Enter new {label}: ").strip()
 
                 setattr(player, attr_name, new_value)
 
-                if attr_name in ("health", "stamina"):
-                    player.clamp_stats()
-
-                if player.health > player.max_health:
-                    player.health = player.max_health
-                if player.stamina > player.max_stamina:
-                    player.stamina = player.max_stamina
+                if player.health < 0:
+                    player.health = 0
+                if player.stamina < 0:
+                    player.stamina = 0
 
                 print(f"✅ {label} updated.")
-                print(player.to_line())
 
             except ValueError:
                 print("❌ Invalid input. Please enter the correct type.")
+
+    def has_mutation(self):
+        return getattr(self, "mutation_code", "00") != "00"
+
+    def set_mutation(self, mutation_code):
+        if mutation_code not in MUTATION_CODES:
+            print(f"Invalid mutation code: {mutation_code}")
+            return False
+
+        self.mutation_code = mutation_code
+        return True
+    def try_trigger_rage(self):
+        if self.mutation_code != "rm":
+            return
+
+        if self.health <= 0:
+            return
+
+        if self.is_raging:
+            return
+
+        if self.rage_used_this_battle:
+            return
+
+        if self.health > self.max_health * 0.5:
+            return
+
+        if random.random() < 0.25:  # testing only
+            self.is_raging = True
+            self.rage_turns = 5  # test value
+            self.rage_used_this_battle = True
+            self.rage_just_triggered = True
+            print(f"\n🔥 {self.name} is consumed by RAGE!")
 
     def groom_wounds(self, target):
         heal_amount = 5
@@ -1276,7 +1377,7 @@ class PlayerCharacter:
             recoil = 3
             self.health -= recoil
 
-            log_action(f"{self.name} lands {hits} bites for {total_damage} total damage!")
+            log_action(f"{self.name} lands {hits} bites for {total_damage} damage!")
             log_action(f"In its frenzy, it hurts itself for {recoil} damage!")
             display_health(target)
         else:
@@ -1553,6 +1654,9 @@ class Battle:
                  {"fur": 0.5, "claw": 0.3, "bone": 0.2, "hide": 0.2, "rotten meat": 0.1},
                  (10, 20), True, ["RED_BLIGHT"], special_ability="blight_crush", luck=7),
 
+            # Mutation
+            Creature("Twisted Whelp","twhelp","Mutation",18,35,{"bone": 0.4, "rotten meat": 0.2},(25, 40),True,[],special_ability="rapid_lunge",luck=2),
+
             # 🌊 Blacktide Beach (Beach) Prey
             Creature("Trout", "trout", "Blacktide Beach", 4, 30, {"medium meat": 0.8, "scale": 0.5}, (10, 20), False, [], special_ability="", luck=21),
             Creature("Minnow", "minnow", "Blacktide Beach", 1, 18, {"small meat": 0.8, "scale": 0.5}, (10, 20), False, [], special_ability="", luck=28),
@@ -1637,7 +1741,7 @@ class Battle:
             {
                 "name": "Hollow Maw",
                 "abbreviation": "HM",
-                "damage": 4,
+                "damage": 15,
                 "health": 850,
                 "drops": {
                     "rotten meat": 0.9,
@@ -1692,7 +1796,7 @@ class Battle:
             {
                 "name": "Carrion Crown",
                 "abbreviation": "CC",
-                "damage": 5,
+                "damage": 18,
                 "health": 755,
                 "drops": {
                     "feather": 0.9,
@@ -1900,7 +2004,36 @@ class Battle:
                 creature.health = min(creature.max_health, creature.health + heal)
                 print(f"{creature.name} FEASTS on the fallen, healing {heal} HP!")
 
+    def grant_random_mutation(self, player):
+        if getattr(player, "mutation_code", "00") != "00":
+            print(f">> {player.name} already has a mutation and cannot gain another.")
+            return False
 
+        mutation_code = random.choice(ROLLABLE_MUTATIONS)
+        player.mutation_code = mutation_code
+
+        print(f"\n🧬 {player.name} has mutated!")
+        print(f">> Mutation gained: {MUTATION_CODES[mutation_code]} ({mutation_code})")
+        print(f">> New player line: {player.to_line()}")
+        return True
+
+
+    def grant_mutation_from_pool(self, player, pool):
+        if getattr(player, "mutation_code", "00") != "00":
+            print(f">> {player.name} already has a mutation and cannot gain another.")
+            return False
+
+        valid_pool = [code for code in pool if code in MUTATION_CODES and code != "00"]
+        if not valid_pool:
+            return False
+
+        mutation_code = random.choice(valid_pool)
+        player.mutation_code = mutation_code
+
+        print(f"\n🧬 {player.name} has mutated!")
+        print(f">> Mutation gained: {MUTATION_CODES[mutation_code]} ({mutation_code})")
+        print(f">> New player line: {player.to_line()}")
+        return True
 
     def generate_raid_boss(self, boss_data, biome="Special", difficulty="normal"):
         """Generate a Raid Boss and its minions."""
@@ -2651,7 +2784,97 @@ class Battle:
             self.start_battle()
 
 
+    def maybe_trigger_special_mutation_encounter(self, source="win"):
+        if source != "win":
+            return False
 
+        # ✅ hard stop: never chain off a mutation encounter
+        if any(c.biome == "Mutation" for c in self.creatures):
+            return False
+
+        # ✅ backup stop if you stored the flag
+        if getattr(self, "was_mutation_battle", False):
+            return False
+
+        if random.random() >= SPECIAL_MUTATION_ENCOUNTER_AFTER_WIN:
+            return False
+
+        print("\n🧬 Something lingers after the battle...")
+        print(">> The air twists unnaturally.")
+        print(">> A malformed creature crawls into view...")
+
+        # 🔥 SAME PATTERN YOU ALREADY USE
+        mutation_pool = [c for c in self.creature_templates if c.biome == "Mutation"]
+
+        if not mutation_pool:
+            print(">> But nothing appears.")
+            return False
+
+        base = random.choice(mutation_pool)
+
+        new_creature = Creature(
+            base.name,
+            base.abbreviation,
+            base.biome,
+            base.damage,
+            base.health,
+            base.drops,
+            base.exp_range,
+            base.is_predator,
+            base.status_effects.copy(),
+            base.special_ability,
+            base.luck
+        )
+
+        new_creature.reset_health()
+
+        print(f"\n⚠ A {new_creature.name} appears!")
+
+        self.creatures = [new_creature]
+        self.current_creature_index = 0
+
+        self.start_battle()
+        return True
+
+    def maybe_trigger_strange_plant(self, player):
+        if random.random() >= STRANGE_PLANT_APPEAR_CHANCE:
+            return False
+
+        print("\n🌿 Hidden among the gathered plants is something... wrong.")
+        print("A strange plant pulses faintly in your paws.")
+        print("1. Eat it")
+        print("2. Discard it")
+
+        choice = input("> Choose: ").strip()
+
+        if choice == "1":
+            roll = random.random()
+
+            if roll < STRANGE_PLANT_MUTATION_CHANCE:
+                self.grant_random_mutation(player)
+            elif roll < STRANGE_PLANT_MUTATION_CHANCE + STRANGE_PLANT_REDBLIGHT_CHANCE:
+                if "RED_BLIGHT" not in player.status_effects:
+                    player.status_effects.append("RED_BLIGHT")
+                print(f"☣️ {player.name} is afflicted with RED_BLIGHT!")
+                print(f">> New player line: {player.to_line()}")
+            else:
+                print(">> Nothing happens. The taste lingers unpleasantly.")
+
+        else:
+            print(">> You discard the strange plant.")
+
+        return True
+
+
+    def maybe_roll_post_raid_mutation(self, players):
+        chance = POST_RAID_MUTATION_CHANCE
+        for player in players:
+            if player.health <= 0:
+                continue
+
+            if random.random() < chance:
+                print(f"\n🧬 {player.name} feels something shift after the raid...")
+                self.grant_random_mutation(player)
 
     def spawn_raid_boss(self, biome):
         """Spawn a special Raid Boss for investigations."""
@@ -2691,6 +2914,8 @@ class Battle:
 
         self.current_creature_index = 0
         self.start_battle()
+        if getattr(self, "last_battle_result", None) == "win":
+            self.maybe_roll_post_raid_mutation(self.players)
 
 
 
@@ -2726,7 +2951,7 @@ class Battle:
                     print(f"{selected.name} is already in.")
                     continue
 
-                if selected.stamina < 5:
+                if selected.stamina < 4:
                     print(f"{selected.name} is too tired to investigate.")
                     continue
 
@@ -2755,7 +2980,7 @@ class Battle:
 
         # Spend stamina
         for p in investigators:
-            p.stamina -= 5
+            p.stamina -= 4
 
         print(f"\n>> The team heads to {biome} to investigate...")
 
@@ -2948,6 +3173,8 @@ class Battle:
             print(f"\n=== PLAYER LINE ===")
             print(player.to_line())
             print(f"=== PLAYER LINE ===\n")
+
+            self.maybe_trigger_strange_plant(player)
 
         else:
             print("\n=== PLAYER STATS ===")
@@ -3534,9 +3761,9 @@ class Battle:
                 self.handle_manual_knockout_drops(player)
 
             # Always remove daze after battle
-            if 'daze' in player.status_effects:
-                player.status_effects.remove('daze')
-                print(f"(Daze effect removed from {player.name})")
+            if 'dazed' in player.status_effects:
+                player.status_effects.remove('dazed')
+                print(f"(Dazed effect removed from {player.name})")
 
         self.distribute_drops_to_players()
 
@@ -3546,11 +3773,16 @@ class Battle:
                 print(f"{item_name}: {count}")
         else:
             print("No items were used.")
-
         print("\n====================================\n")
+        if self.last_battle_result == "win" and not getattr(self, "was_mutation_battle", False):
+            self.maybe_trigger_special_mutation_encounter(source="win")
+        player.is_raging = False
+        player.rage_turns = 0
+        player.rage_used_this_battle = False
+        player.rage_just_triggered = False
             
     def attempt_escape_player(self, player, active_creature):
-        if random.random() < 0.4:  # 40% chance to escape
+        if random.random() < 0.3:  # 40% chance to escape
             print(f"\n{player.name} successfully escaped from {active_creature.name}!\n")
 
             print("====== PLAYER ESCAPE STATS ======")
@@ -4155,7 +4387,11 @@ class Battle:
 
 
     def start_battle(self):
+        battle_ended = False
+        self.last_battle_result = None
+        self.was_mutation_battle = any(c.biome == "Mutation" for c in self.creatures)
         current_creature = self.creatures[self.current_creature_index]
+        
 
         print(f"\n\U0001fa78\u2501\u2501\u2501[ {current_creature.name} Approaches ]\u2501\u2501\u2501\U0001fa78")
         print(f"\n \U0001f9e0 Health: {current_creature.health}")
@@ -4168,6 +4404,7 @@ class Battle:
             creature.reset_health()
 
         battle_ended = False
+        self.last_battle_result = None
         while not battle_ended:
             self.update_temp_boosts()
 
@@ -4236,7 +4473,10 @@ class Battle:
 
                 while True:
                     print(f"\n{player.name}'s turn!")
-                    action = input("Enter an action: ").strip().lower()
+                    if player.is_raging:
+                        action = 'a'
+                    else:
+                        action = input("Enter an action: ").strip().lower()
 
                     if not self.process_player_action(player, action, active_creature):
                         print("Invalid action. Try again.")
@@ -4301,8 +4541,12 @@ class Battle:
 
             if all(creature.health <= 0 for creature in self.creatures):
                 battle_ended = True
+                self.last_battle_result = "win"
+
             if all(player.health <= 0 for player in self.players):
                 battle_ended = True
+                self.last_battle_result = "loss"
+                
             if self.taunt_turns_remaining > 0:
                 self.taunt_turns_remaining -= 1
                 if self.taunt_turns_remaining == 0:
@@ -4318,6 +4562,15 @@ class Battle:
 
         if battle_ended:
             self.end_battle()
+
+            if self.last_battle_result == "win" and self.was_mutation_battle:
+                living_players = [p for p in self.players if p.health > 0]
+                mutation_candidates = [p for p in living_players if getattr(p, "mutation_code", "00") == "00"]
+
+                if mutation_candidates:
+                    chosen_player = random.choice(mutation_candidates)
+                    print(f"\n🧬 The twisted creature's death leaves something behind...")
+                    self.grant_random_mutation(chosen_player)
 
     def process_player_action(self, player, action, active_creature, ignore_protection=False):
         if action == 's':
@@ -4341,32 +4594,61 @@ class Battle:
                 return False
 
         elif action == 'a':
+            was_raging_before = player.is_raging
+
+            if not player.is_raging:
+                player.try_trigger_rage()
+
+            if player.rage_just_triggered:
+                player.rage_just_triggered = False
+                print(f">> {player.name} loses control and will attack wildly next turn!")
+                return True
+
             miss_chance = 0.15
             if player.luck < active_creature.luck:
                 miss_chance += min((active_creature.luck - player.luck) * 0.08, 0.60)
+
             if random.random() < miss_chance:
                 display_header(player.name + "'s Turn")
                 print(f"\n{player.name}'s attack misses {active_creature.name}!")
                 print(f"{active_creature.name} has {active_creature.health}/{active_creature.max_health} HP remaining!\n")
+
+                if was_raging_before and player.is_raging:
+                    player.rage_turns -= 1
+                    if player.rage_turns <= 0:
+                        player.is_raging = False
+                        print(f">> {player.name} calms down...")
+
                 return True
-    
+
             damage = player.damage
-            if not ignore_protection:
-                if hasattr(active_creature, 'protection'):
-                    damage = max(damage - active_creature.protection, 0)
+
+            if player.is_raging:
+                print(f"🔥 {player.name} is in a rage and lashes out wildly!")
+                damage = int(damage * 1.5)
+
+            if not ignore_protection and hasattr(active_creature, 'protection'):
+                damage = max(damage - active_creature.protection, 0)
 
             if random.random() <= 0.20:
                 damage *= 2
                 print("\n" * 21)
                 print("\U0001f4a5" * 3 + " CRITICAL HIT! " + "\U0001f4a5" * 3)
-    
+
             active_creature.health -= damage
+            active_creature.health = max(active_creature.health, 0)
+
             display_header(player.name + "'s Turn")
             print(f">> {player.name} hits for {damage} damage!")
             print(f"{active_creature.name} has {active_creature.health}/{active_creature.max_health} HP remaining!\n")
-    
+
+            if player.is_raging and random.random() < 0.25:
+                recoil = random.randint(3, 6)
+                player.health -= recoil
+                player.clamp_stats()
+                print(f">> {player.name} is hurt by recoil ({recoil})!")
+
             if active_creature.health <= 0:
-                active_creature.health = 0
                 if isinstance(active_creature, Creature):
                     drops, exp_gained = active_creature.generate_drops()
                     for item, quantity in drops.items():
@@ -4374,10 +4656,13 @@ class Battle:
                     self.total_exp += exp_gained
 
                     if active_creature in self.creatures:
-                        idx = self.creatures.index(active_creature)
-                        if active_creature.health <= 0:
-                            self.handle_creature_defeat(active_creature)
-                            return True
+                        self.handle_creature_defeat(active_creature)
+
+            if was_raging_before and player.is_raging:
+                player.rage_turns -= 1
+                if player.rage_turns <= 0:
+                    player.is_raging = False
+                    print(f">> {player.name} calms down...")
 
             return True
 
@@ -4410,15 +4695,13 @@ class Battle:
                     return True
             return True
 
-        elif action in ('b', 'dc', 'wh'):
-            getattr(player, {
-                'b': 'bristle',
-                'dc': 'defensive_crouch',
-                'wh': 'war_howl'
-            }[action])()
-            return True
-        elif action == 't':
-            player.taunt(self)  # ← pass battle instance
+        elif action in ('b', 'dc', 'wh', 't'):
+            {
+                'b': lambda: player.bristle(),
+                'dc': lambda: player.defensive_crouch(),
+                'wh': lambda: player.war_howl(),
+                't': lambda: player.taunt(self),
+            }[action]()
             return True
 
         elif action == 'sf':
@@ -4456,24 +4739,13 @@ class Battle:
                     print("All players have escaped! Ending the battle.")
                     return True
             return True
-
-        elif action == 'rn':
-            self.roar_of_need(player)
-            return True
-
-        elif action == 'j':
-            self.join_new_player()
-            print(f"{player.name} can now take another action.")
-            return True
-
         elif action == 'ui':
-            return self.use_item(player)
+            self.use_item(player)
+            return True
         elif action == 'p':
             display_header(player.name + "'s Turn")
-
             log_action(f"{player.name} hesitates... and leaves an opening!")
 
-            # Enemy gets a free hit
             retaliation = active_creature.damage
             actual_damage = max(retaliation - player.total_protection, 0)
 
@@ -4482,7 +4754,15 @@ class Battle:
 
             log_action(f"{active_creature.name} takes advantage and hits {player.name} for {actual_damage} damage!")
             display_health(player)
+            return True
 
+        elif action == 'rn':
+            self.roar_of_need(player)
+            return True
+
+        elif action == 'j':
+            self.join_new_player()
+            print(f"{player.name} can now take another action.")
             return True
 
         return False
