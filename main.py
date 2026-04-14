@@ -15,7 +15,7 @@ def input(prompt=""):
             print("[!] Input failed or was interrupted. Please try again.")
 
             
-VERSION = "21"  # ← change this manually when you update!
+VERSION = "22"  # ← change this manually when you update!
 print(f"\n🔄 SSRPG Game Version: {VERSION}\n")
 
 
@@ -45,12 +45,15 @@ POST_RAID_MUTATION_CHANCE = 0.001
 MUTATION_CODES = {
     "00": "None",
     "rm": "Rage Mutation",
-    "nb": "Night Blood",
+    "fr": "Feral",
     "ih": "Iron Hide",
-    "sf": "Sharp Fangs",
     "he": "Hollow Eyes",
+    "sc": "Scavenger",
+    "cc": "Corrupted Core",
+    "pi": "Predatoor Instinct",
+    "sb": "Spring Bloood",
 }
-ROLLABLE_MUTATIONS = ["rm", "nb", "ih", "sf", "he"]
+ROLLABLE_MUTATIONS = ["rm", "fr", "ih", "he", "sc", "cc", "pi", "sb"]
 
 VALID_MUTATION_CODES = set(MUTATION_CODES.keys())
 
@@ -301,17 +304,58 @@ class Creature:
 
         if random.random() < miss_chance:
             log_action(f"{self.name}'s attack misses {target.name}!")
+            if (
+                hasattr(target, "mutation_code")
+                and target.mutation_code == "pi"
+                and random.random() < 0.50
+            ):
+                log_action(f"🐾 {target.name} reacts instantly and counterattacks!")
+
+                creature_protection = getattr(self, "protection", 0)
+                retaliation_damage = max(target.damage - creature_protection, 0)
+                self.health -= retaliation_damage
+                self.health = max(self.health, 0)
+
+                log_action(f">> {target.name} strikes back for {retaliation_damage} damage!")
+
+                if self.health <= 0:
+                    log_action(f"{self.name} has been defeated!")
             return
 
         if self.special_ability and random.random() <= 0.20:
             self.use_special_ability(target)
             return
 
-        damage_dealt = max(self.damage - target.protection, 0)
+        if (
+            hasattr(target, "mutation_code")
+            and target.mutation_code == "pi"
+            and random.random() < 0.15
+        ):
+            log_action(f"🐾 {target.name} dodges the attack completely!")
+
+            target.predator_ready = True
+            log_action(f"👁️ Predator Instinct sharpens their next strike!")
+
+            return
+        damage_dealt = max(self.damage - target.total_protection, 0)
+        if hasattr(target, "mutation_code") and target.mutation_code == "fr":
+            damage_dealt = int(damage_dealt * 1.50)
         target.health -= damage_dealt
         target.clamp_stats()
         log_action(f"{self.name} attacks {target.name} for {damage_dealt} damage!")
-
+        if (
+            hasattr(target, "mutation_code")
+            and target.mutation_code == "ih"
+            and damage_dealt > 0
+            and random.random() < 0.15
+        ):
+            reflect_damage = random.randint(5, 7)
+            self.health -= reflect_damage
+            self.health = max(self.health, 0)
+            log_action(f"{self.name} crashes into {target.name}'s Iron Hide and takes {reflect_damage} recoil damage!")
+            if self.health <= 0:
+                    log_action(f"{self.name} has been defeated!")
+            
         if hasattr(target, 'status_effects'):
             for effect in self.status_effects:
                 if effect == 'poison' and 'poison' not in target.status_effects and random.random() < POISON_CHANCE:
@@ -335,10 +379,25 @@ class Creature:
 
         def deal_and_log(dmg, message):
             effective_damage = max(dmg - target.total_protection, 0)
+            if hasattr(target, "mutation_code") and target.mutation_code == "fr":
+                effective_damage = int(effective_damage * 1.50)
             target.health -= effective_damage
             target.clamp_stats()
             log_action(f"{message} ({effective_damage}!)")
             display_health(target)
+            if (
+                hasattr(target, "mutation_code")
+                and target.mutation_code == "ih"
+                and effective_damage > 0
+                and random.random() < 0.15
+            ):
+                reflect_damage = random.randint(5, 7)
+                self.health -= reflect_damage
+                self.health = max(self.health, 0)
+                log_action(f"{self.name} slams into {target.name}'s Iron Hide and takes {reflect_damage} recoil damage!")
+
+                if self.health <= 0:
+                    log_action(f"{self.name} has been defeated!")
 
         if self.special_ability == "frenzied_bite":
             damage = self.damage * 2
@@ -468,17 +527,22 @@ class Creature:
                     print(f"{self.name}'s dark presence envelops {target.name} in shadows!")
                     target.add_status_effect('shadow shroud')
 
-    def generate_drops(self):
-        """Generate drops based on drop percentages and return the total EXP earned."""
+    def generate_drops(self, hollow_eyes_active=False):
         drops_gained = {}
-        for item, chance in self.drops.items():
-            if random.random() < chance:
-                quantity = random.randint(1, 3)  # Randomly determine a quantity (1 to 3) of the item to drop
-                drops_gained[item] = drops_gained.get(item, 0) + quantity  # Increment the drop count
 
-        # Generate EXP from the defined range
+        for item, chance in self.drops.items():
+            effective_chance = chance
+
+            if hollow_eyes_active:
+                effective_chance = min(chance * 1.20, 1.0)
+
+            if random.random() < effective_chance:
+                quantity = random.randint(1, 3)
+                drops_gained[item] = drops_gained.get(item, 0) + quantity
+
         exp_earned = random.randint(*self.exp_range)
         return drops_gained, exp_earned
+    
 
 class Plant:
     def __init__(self, name, biome, gather_chance, effects=None):
@@ -965,8 +1029,6 @@ class PlayerCharacter:
         except:
             self.status_effects = [] # List to track status effects
         self.inventory = []  # Initialize inventory for items
-        self.temp_damage = 0
-        self.temp_protection = 0
         self.rest_counter = rest_counter
         self.current_nest = current_nest
         self.mutation_code = mutation_code if mutation_code in VALID_MUTATION_CODES else "00"
@@ -974,6 +1036,11 @@ class PlayerCharacter:
         self.rage_turns = 0
         self.rage_used_this_battle = False
         self.rage_just_triggered = False
+        self.iron_hide_bonus = 0
+        self.hollow_eyes_luck_bonus = 0
+        self.predator_ready = False
+        self.springblood_stamina_bonus = 0
+        self.corrupted_core_bonus_damage = 0
 
     @property
     def total_damage(self):
@@ -1475,7 +1542,7 @@ class PlayerCharacter:
 
         if 'RED_BLIGHT' in self.status_effects:
             print(f"{self.name} is wracked by RED_BLIGHT and loses {RED_BLIGHT_DAMAGE} HP!")
-            self.health -= RED_BLIGHT_DAMAGE
+            self.health = max(self.health - RED_BLIGHT_DAMAGE, 0)
             total_damage += RED_BLIGHT_DAMAGE
 
         if 'bleeding' in self.status_effects:
@@ -1589,6 +1656,7 @@ class Battle:
         self.total_drops = {}  # To store total drops from this battle
         self.total_exp = 0  # To store total experience gained in this battle
         self.items_used = {}
+        self.personal_scavenger_loot = {}
         self.taunted_by = None  # Tracks which player has taunted
         self.taunt_turns_remaining = 0
         self.temp_boosts = {
@@ -1663,7 +1731,6 @@ class Battle:
             Creature("Crab", "crab", "Blacktide Beach", 6, 45, {"small meat": 0.8, "shell": 0.5}, (10, 20), False, [], special_ability="", luck=18),
 
             # event pred
-            Creature("Spring Bunny", "sbunny", "EventCreature", 1, 6, {"small meat": 0.6, "fur": 0.4}, (8, 15), True, [], special_ability="", luck=6),
             # 🌊 Blacktide Beach Predators
             Creature("Gull", "gull", "Blacktide Beach", 6, 20, {"claw": 0.5, "feather": 0.5}, (10, 20), True, [], special_ability="rapid_lunge", luck=17),
             Creature("Crow", "crow", "Blacktide Beach", 5, 25, {"claw": 0.5, "feather": 0.5}, (10, 20), True, [], special_ability="frenzied_bite", luck=18),
@@ -1876,33 +1943,6 @@ class Battle:
                 "special_ability": "venom_lash",
                 "luck": 10,
                 "minions": ["Sea Snake", "Crab"]
-            },
-            {
-                "name": "Bunbun Bloom",
-                "abbreviation": "EB",
-                "damage": 1,
-                "health": 45,
-                "drops": {
-                    "Spring Carrot": 0.70,
-                    "Eggshell Charm": 0.45,
-                    "Goldenrod": 0.60,
-                    "Marigold": 0.60,
-                    "Juniper Berries": 0.50,
-                    "Basic Healing Poultice": 0.25,
-                    "+1HP": 0.18,
-                    "+1Luck": 0.14,
-                    "+1Protection": 0.10,
-                    "+1DMG": 0.06,
-                    "Bunny Blessing": 0.06,
-                    "+1 Pawmarks": 0.20
-                },
-                "exp_range": (30, 50),
-                "is_predator": True,
-                "status_effects": [],
-                "special_ability": "bunny_blessing",
-                "luck": 5,
-                "minions": ["Spring Bunny"],
-                "can_rage": False
             }
         ]
         self.DROP_TIERS = {
@@ -2719,12 +2759,18 @@ class Battle:
                 self._print_hunt_player_stats(hunters)
                 self._print_hunt_player_lines(hunters)
 
-                drops, exp_gained = prey.generate_drops()
+                hollow_eyes_active = any(h.mutation_code == "he" and h.health > 0 for h in hunters)
+                drops, exp_gained = prey.generate_drops(hollow_eyes_active=hollow_eyes_active)
                 print(f"Drops gained: {drops}")
 
                 for item, quantity in drops.items():
                     self.total_drops[item] = self.total_drops.get(item, 0) + quantity
                 self.total_exp += exp_gained
+
+                for hunter in hunters:
+                    if hunter.mutation_code == "sc" and hunter.health > 0:
+                        self.award_scavenger_bonus(hunter, prey)
+
                 self._maybe_trigger_posthunt_encounter(biome)
                 return
 
@@ -3071,7 +3117,50 @@ class Battle:
         except ValueError:
             print("Please enter a valid number")
 
-        # Add new method to Battle class
+    def get_scavenger_lottery_item(self):
+        lottery = ShadowLottery()
+        results = lottery.draw_lottery(1)
+
+        if not results:
+            return None
+
+        result = results[0]
+        if isinstance(result, dict):
+            return result.get("item")
+
+        return None
+    def award_scavenger_bonus(self, player, source_creature):
+        if player.mutation_code != "sc" or player.health <= 0:
+            return
+
+        personal_loot = {}
+        if source_creature.drops and random.random() < 0.10:
+            for item in source_creature.drops.keys():
+                quantity = random.randint(1, 2)
+                personal_loot[item] = personal_loot.get(item, 0) + quantity
+
+        if source_creature.drops:
+            bonus_count = random.randint(2, 5)
+            possible_items = list(source_creature.drops.keys())
+
+            for _ in range(bonus_count):
+                item = random.choice(possible_items)
+                personal_loot[item] = personal_loot.get(item, 0) + 1
+
+        if random.random() < 0.05:
+            bonus_item = self.get_scavenger_lottery_item()
+            if bonus_item:
+                personal_loot[bonus_item] = personal_loot.get(bonus_item, 0) + 1
+
+        if personal_loot:
+            if player.name not in self.personal_scavenger_loot:
+                self.personal_scavenger_loot[player.name] = {}
+
+            for item, qty in personal_loot.items():
+                self.personal_scavenger_loot[player.name][item] = (
+                    self.personal_scavenger_loot[player.name].get(item, 0) + qty
+                )
+
     def gather_plants(self, player):
         # Check stamina first
         stamina_cost = 2
@@ -3742,6 +3831,29 @@ class Battle:
         print("\n========== BATTLE SUMMARY ==========")
 
         for player in self.players:
+            player.is_raging = False
+            player.rage_turns = 0
+            player.rage_used_this_battle = False
+            player.rage_just_triggered = False
+
+            player.iron_hide_bonus = 0
+            player.corrupted_core_bonus_damage = 0
+
+            if hasattr(player, "springblood_stamina_bonus") and player.springblood_stamina_bonus > 0:
+                player.max_stamina -= player.springblood_stamina_bonus
+                player.springblood_stamina_bonus = 0
+
+                if player.stamina > player.max_stamina:
+                    player.stamina = player.max_stamina
+
+            if hasattr(player, "hollow_eyes_luck_bonus") and player.hollow_eyes_luck_bonus > 0:
+                player.luck -= player.hollow_eyes_luck_bonus
+                player.hollow_eyes_luck_bonus = 0
+
+            if 'dazed' in player.status_effects:
+                player.status_effects.remove('dazed')
+                print(f"(Dazed effect removed from {player.name})")
+
             print("")
             print(f"\n=== PLAYER LINE ===")
             print(player.to_line())
@@ -3760,11 +3872,6 @@ class Battle:
             if player.health <= 0:
                 self.handle_manual_knockout_drops(player)
 
-            # Always remove daze after battle
-            if 'dazed' in player.status_effects:
-                player.status_effects.remove('dazed')
-                print(f"(Dazed effect removed from {player.name})")
-
         self.distribute_drops_to_players()
 
         print("\n--- Items Used During Battle ---")
@@ -3773,13 +3880,11 @@ class Battle:
                 print(f"{item_name}: {count}")
         else:
             print("No items were used.")
+
         print("\n====================================\n")
+
         if self.last_battle_result == "win" and not getattr(self, "was_mutation_battle", False):
             self.maybe_trigger_special_mutation_encounter(source="win")
-        player.is_raging = False
-        player.rage_turns = 0
-        player.rage_used_this_battle = False
-        player.rage_just_triggered = False
             
     def attempt_escape_player(self, player, active_creature):
         if random.random() < 0.3:  # 40% chance to escape
@@ -4358,21 +4463,28 @@ class Battle:
             print("─" * 50)
 
             target_creature.health = 0
-            drops, exp_gained = target_creature.generate_drops()
+
+            hollow_eyes_active = any(p.mutation_code == "he" and p.health > 0 for p in self.players)
+            drops, exp_gained = target_creature.generate_drops(
+                hollow_eyes_active=hollow_eyes_active
+            )
+
             for item, quantity in drops.items():
                 self.total_drops[item] = self.total_drops.get(item, 0) + quantity
 
             self.total_exp += exp_gained
-
+            for scavenger_player in self.players:
+                if scavenger_player.mutation_code == "sc" and scavenger_player.health > 0:
+                    self.award_scavenger_bonus(scavenger_player, target_creature)
             if target_creature in self.creatures:
                 idx = self.creatures.index(target_creature)
                 self.creatures.remove(target_creature)
-                # Fix the index if we were pointing to this creature or anything after
+
                 if self.current_creature_index > idx:
                     self.current_creature_index -= 1
                 elif self.current_creature_index == idx:
-                    # Don't increment index in main loop; we already moved
                     pass
+
             return True
         return False
     def distribute_drops_to_players(self):
@@ -4383,6 +4495,10 @@ class Battle:
                 give_qty = random.randint(0, min(3, total_qty))  # Up to 3 max, or 0
                 if give_qty > 0:
                     print(f"    → {give_qty}x {item}")
+            if player.name in self.personal_scavenger_loot:
+                print(f"  🧺 Personal Scavenger Loot:")
+                for item, qty in self.personal_scavenger_loot[player.name].items():
+                    print(f"    → {qty}x {item}")
 
 
 
@@ -4399,10 +4515,26 @@ class Battle:
 
         self.total_drops = {}
         self.total_exp = 0
+        self.personal_scavenger_loot = {}
 
         for creature in self.creatures:
             creature.reset_health()
 
+        for player in self.players:
+            if player.mutation_code == "ih":
+                player.iron_hide_bonus = random.randint(15, 30)
+                player.temp_protection += player.iron_hide_bonus
+                print(f"🛡️ {player.name}'s Iron Hide hardens! +{player.iron_hide_bonus} protection this battle.")
+        if player.mutation_code == "he":
+            player.hollow_eyes_luck_bonus = 25
+            player.luck += player.hollow_eyes_luck_bonus
+            print(f"👁️ {player.name}'s Hollow Eyes sharpen! +25 luck this battle.")
+        if player.mutation_code == "sb":
+            player.springblood_stamina_bonus = random.randint(15, 35)
+            player.max_stamina += player.springblood_stamina_bonus
+            player.stamina = min(player.stamina + player.springblood_stamina_bonus, player.max_stamina)
+            print(f"🌿 {player.name}'s SpringBlood surges! +{player.springblood_stamina_bonus} max stamina this battle.")
+        
         battle_ended = False
         self.last_battle_result = None
         while not battle_ended:
@@ -4464,6 +4596,15 @@ class Battle:
 
                 skip_turn = player.apply_status_effects()
 
+                if player.mutation_code == "sb" and player.health > 0:
+                    heal_amount = random.randint(3, 8)
+                    stamina_regen = 5
+
+                    player.health = min(player.health + heal_amount, player.max_health)
+                    player.stamina = min(player.stamina + stamina_regen, player.max_stamina)
+
+                    print(f"🌿 SpringBlood restores {heal_amount} HP and {stamina_regen} stamina to {player.name}!")
+
                 if player.health <= 0:
                     continue
 
@@ -4473,6 +4614,38 @@ class Battle:
 
                 while True:
                     print(f"\n{player.name}'s turn!")
+
+                    if player.mutation_code == "cc" and player.health > 0:
+                        if random.random() < 0.15:
+                            corruption_damage = random.randint(8, 10)
+                            player.health -= corruption_damage
+                            player.clamp_stats()
+
+                            player.corrupted_core_bonus_damage += 1
+
+                            print(f"☣️ Corrupted Core lashes through {player.name} for {corruption_damage} damage!")
+                            print(f"☣️ {player.name}'s corruption deepens... +1 damage this battle.")
+
+                        if random.random() < 0.25:
+                            crash_damage = random.randint(3, 6)
+                            self_damage = random.randint(5, 8)
+
+                            print(f"☣️ Corrupted Crash erupts from {player.name}!")
+
+                            for creature in list(self.creatures):
+                                if creature.health > 0:
+                                    creature.health -= crash_damage
+                                    creature.health = max(creature.health, 0)
+
+                                    print(f">> {len(self.creatures)} enemies are wracked by corruption!")
+
+                                    if creature.health <= 0:
+                                        self.handle_creature_defeat(creature)
+
+                            player.health -= self_damage
+                            player.clamp_stats()
+
+                            print(f">> {player.name} is torn by the backlash and loses {self_damage} HP!")
                     if player.is_raging:
                         action = 'a'
                     else:
@@ -4621,16 +4794,37 @@ class Battle:
 
                 return True
 
-            damage = player.damage
+            damage = player.damage + getattr(player, "corrupted_core_bonus_damage", 0)
+
+            if player.mutation_code == "cc":
+                damage = int(damage * 1.35)
+
+            if player.mutation_code == "pi" and getattr(player, "predator_ready", False):
+                print(f"🐾 {player.name} strikes with predatory precision!")
+                damage = int(damage * 1.5)
+                player.predator_ready = False
+
+            if player.mutation_code == "fr":
+                damage = int(damage * 1.25)
 
             if player.is_raging:
                 print(f"🔥 {player.name} is in a rage and lashes out wildly!")
                 damage = int(damage * 1.5)
 
+            if player.mutation_code == "ih":
+                damage = max(int(damage * 0.25), 1)
+
             if not ignore_protection and hasattr(active_creature, 'protection'):
                 damage = max(damage - active_creature.protection, 0)
 
-            if random.random() <= 0.20:
+            crit_chance = 0.20
+            if player.mutation_code == "fr":
+                crit_chance += 0.15
+
+            if player.mutation_code == "he":
+                crit_chance += 0.05
+
+            if random.random() <= crit_chance:
                 damage *= 2
                 print("\n" * 21)
                 print("\U0001f4a5" * 3 + " CRITICAL HIT! " + "\U0001f4a5" * 3)
@@ -4648,9 +4842,25 @@ class Battle:
                 player.clamp_stats()
                 print(f">> {player.name} is hurt by recoil ({recoil})!")
 
+            # FERAL: bonus follow-up strike
+            if (
+                player.mutation_code == "fr"
+                and active_creature.health > 0
+                and random.random() < 0.20
+            ):
+                extra_damage = max(int(damage * 0.5), 1)
+                active_creature.health -= extra_damage
+                active_creature.health = max(active_creature.health, 0)
+                print(f">> {player.name}'s feral instincts trigger a second strike for {extra_damage} damage!")
+                print(f"{active_creature.name} has {active_creature.health}/{active_creature.max_health} HP remaining!\n")
+
             if active_creature.health <= 0:
                 if isinstance(active_creature, Creature):
-                    drops, exp_gained = active_creature.generate_drops()
+                    hollow_eyes_active = any(p.mutation_code == "he" and p.health > 0 for p in self.players)
+                    drops, exp_gained = active_creature.generate_drops(
+                        hollow_eyes_active=hollow_eyes_active
+                    )
+
                     for item, quantity in drops.items():
                         self.total_drops[item] = self.total_drops.get(item, 0) + quantity
                     self.total_exp += exp_gained
